@@ -1,9 +1,10 @@
 import Link from "next/link";
 
-type TabKey = "chart" | "residents" | "finances" | "structure";
+type TabKey = "dashboard" | "chart" | "residents" | "finances" | "structure";
 
 const TABS: { key: TabKey; label: string; path: string }[] = [
-  { key: "chart", label: "Шахматка", path: "" },
+  { key: "dashboard", label: "Главная", path: "" },
+  { key: "chart", label: "Шахматка", path: "/chart" },
   { key: "residents", label: "Жильцы", path: "/residents" },
   { key: "finances", label: "Финансы", path: "/finances" },
   { key: "structure", label: "Структура", path: "/structure" },
