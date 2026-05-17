@@ -10,11 +10,14 @@ import { prisma } from "@/lib/prisma";
 import {
   createBed,
   createBuilding,
+  createExpenseCategory,
   createRoom,
   deleteBed,
   deleteBuilding,
+  deleteExpenseCategory,
   deleteRoom,
   updateBed,
+  updateExpenseCategory,
 } from "../../actions";
 
 type BedDefaults = {
@@ -76,6 +79,41 @@ function BedFields({ bed }: { bed?: BedDefaults }) {
   );
 }
 
+function CategoryFields({
+  category,
+}: {
+  category?: { name: string; fixedAmount: number | null };
+}) {
+  return (
+    <>
+      <div className="space-y-2">
+        <Label className="text-base">Название категории</Label>
+        <Input
+          name="name"
+          required
+          defaultValue={category?.name}
+          placeholder="Например: Электричество"
+          className="h-11 text-base"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="text-base">
+          Обычная сумма за месяц (необязательно)
+        </Label>
+        <Input
+          name="fixedAmount"
+          type="number"
+          min="0"
+          step="1"
+          defaultValue={category?.fixedAmount ?? undefined}
+          placeholder="Подставится при добавлении затраты"
+          className="h-11 text-base"
+        />
+      </div>
+    </>
+  );
+}
+
 export default async function StructurePage({
   params,
 }: {
@@ -98,6 +136,11 @@ export default async function StructurePage({
   });
 
   if (!property) notFound();
+
+  const categories = await prisma.expenseCategory.findMany({
+    where: { propertyId: id },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <div className="space-y-6">
@@ -276,6 +319,73 @@ export default async function StructurePage({
           </section>
         ))}
       </div>
+
+      <section className="bg-card space-y-3 rounded-lg border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-semibold">Категории затрат</h2>
+            <p className="text-muted-foreground text-sm">
+              Группируют затраты в Финансах: электричество, мусор, вода и т.п.
+            </p>
+          </div>
+          <AddDialog
+            triggerLabel="+ Категория"
+            triggerVariant="outline"
+            title="Новая категория"
+            action={createExpenseCategory}
+            hidden={{ propertyId: property.id }}
+            successMessage="Категория добавлена"
+          >
+            <CategoryFields />
+          </AddDialog>
+        </div>
+
+        {categories.length === 0 ? (
+          <p className="text-muted-foreground text-sm">Категорий пока нет.</p>
+        ) : (
+          <ul className="space-y-2">
+            {categories.map((c) => (
+              <li
+                key={c.id}
+                className="bg-muted flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+              >
+                <div>
+                  <p className="font-medium">{c.name}</p>
+                  {c.fixedAmount != null && (
+                    <p className="text-muted-foreground text-sm">
+                      обычная сумма: {formatMoney(Number(c.fixedAmount))}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <AddDialog
+                    triggerLabel="Изменить"
+                    triggerVariant="outline"
+                    title={`Категория — ${c.name}`}
+                    action={updateExpenseCategory}
+                    hidden={{ id: c.id, propertyId: property.id }}
+                    successMessage="Категория обновлена"
+                  >
+                    <CategoryFields
+                      category={{
+                        name: c.name,
+                        fixedAmount:
+                          c.fixedAmount != null ? Number(c.fixedAmount) : null,
+                      }}
+                    />
+                  </AddDialog>
+                  <DeleteForm
+                    action={deleteExpenseCategory}
+                    hidden={{ id: c.id, propertyId: property.id }}
+                    label="Удалить"
+                    confirmText={`Удалить категорию «${c.name}»?`}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

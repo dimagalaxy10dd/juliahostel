@@ -505,7 +505,7 @@ export async function createExpenseCategory(
       isFixed: parsed.data.fixedAmount != null,
     },
   });
-  revalidatePath(`/objects/${propertyId}/finances`);
+  revalidatePath(`/objects/${propertyId}/structure`);
   return { ok: true };
 }
 
@@ -529,14 +529,14 @@ export async function updateExpenseCategory(
       isFixed: parsed.data.fixedAmount != null,
     },
   });
-  revalidatePath(`/objects/${str(formData, "propertyId")}/finances`);
+  revalidatePath(`/objects/${str(formData, "propertyId")}/structure`);
   return { ok: true };
 }
 
 export async function deleteExpenseCategory(formData: FormData): Promise<void> {
   await requireAuth();
   await prisma.expenseCategory.delete({ where: { id: str(formData, "id") } });
-  revalidatePath(`/objects/${str(formData, "propertyId")}/finances`);
+  revalidatePath(`/objects/${str(formData, "propertyId")}/structure`);
 }
 
 // --- Затраты ---

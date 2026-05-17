@@ -1,22 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AddDialog } from "@/components/add-dialog";
 import { DeleteForm } from "@/components/delete-form";
 import { PropertyTabs } from "@/components/property-tabs";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatMoney } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
-import {
-  createExpenseCategory,
-  deleteExpense,
-  deleteExpenseCategory,
-  updateExpenseCategory,
-} from "../../actions";
+import { deleteExpense } from "../../actions";
 import { AddExpenseDialog } from "./add-expense-dialog";
 
 const MONTHS = [
@@ -40,39 +29,6 @@ function pad(n: number): string {
 
 function fmtDate(d: Date): string {
   return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`;
-}
-
-function CategoryFields({
-  category,
-}: {
-  category?: { name: string; fixedAmount: number | null };
-}) {
-  return (
-    <>
-      <div className="space-y-2">
-        <Label className="text-base">Название категории</Label>
-        <Input
-          name="name"
-          required
-          defaultValue={category?.name}
-          placeholder="Например: Электричество"
-          className="h-11 text-base"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label className="text-base">Обычная сумма за месяц (необязательно)</Label>
-        <Input
-          name="fixedAmount"
-          type="number"
-          min="0"
-          step="1"
-          defaultValue={category?.fixedAmount ?? undefined}
-          placeholder="Подставится при добавлении затраты"
-          className="h-11 text-base"
-        />
-      </div>
-    </>
-  );
 }
 
 export default async function FinancesPage({
@@ -257,68 +213,9 @@ export default async function FinancesPage({
         </ul>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-        <h2 className="text-lg font-semibold">Категории затрат</h2>
-        <AddDialog
-          triggerLabel="+ Категория"
-          triggerVariant="outline"
-          title="Новая категория"
-          action={createExpenseCategory}
-          hidden={{ propertyId: id }}
-          successMessage="Категория добавлена"
-        >
-          <CategoryFields />
-        </AddDialog>
-      </div>
-
-      {categories.length === 0 ? (
-        <p className="text-muted-foreground">
-          Категории помогают группировать затраты (электричество, мусор, вода
-          и т.п.).
-        </p>
-      ) : (
-        <ul className="space-y-2">
-          {categories.map((c) => (
-            <li
-              key={c.id}
-              className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
-            >
-              <div>
-                <p className="font-medium">{c.name}</p>
-                {c.fixedAmount != null && (
-                  <p className="text-muted-foreground text-sm">
-                    обычная сумма: {formatMoney(Number(c.fixedAmount))}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <AddDialog
-                  triggerLabel="Изменить"
-                  triggerVariant="outline"
-                  title={`Категория — ${c.name}`}
-                  action={updateExpenseCategory}
-                  hidden={{ id: c.id, propertyId: id }}
-                  successMessage="Категория обновлена"
-                >
-                  <CategoryFields
-                    category={{
-                      name: c.name,
-                      fixedAmount:
-                        c.fixedAmount != null ? Number(c.fixedAmount) : null,
-                    }}
-                  />
-                </AddDialog>
-                <DeleteForm
-                  action={deleteExpenseCategory}
-                  hidden={{ id: c.id, propertyId: id }}
-                  label="Удалить"
-                  confirmText={`Удалить категорию «${c.name}»?`}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      <p className="text-muted-foreground text-sm">
+        Категории затрат настраиваются на вкладке «Настройки».
+      </p>
     </div>
   );
 }
