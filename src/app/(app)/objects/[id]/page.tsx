@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PropertyTabs } from "@/components/property-tabs";
 import { Card, CardContent } from "@/components/ui/card";
+import { paidThroughDays, stayDays } from "@/lib/billing";
 import { formatMoney } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
@@ -116,6 +117,28 @@ export default async function PropertyDashboardPage({
   );
   const unpaid = items.filter((i) => i.balance > 0);
 
+  // Долг за уже прожитые, но не оплаченные дни (по всем активным заселениям).
+  const tomorrow = new Date(now.getTime() + 86400000);
+  let livedDebtTotal = 0;
+  let debtorsCount = 0;
+  for (const s of stayRows) {
+    const totalDays = stayDays(s.dateFrom, s.dateTo);
+    if (totalDays <= 0) continue;
+    const agreed = Number(s.agreedAmount);
+    const paid = s.payments.reduce((n, p) => n + Number(p.amount), 0);
+    const dailyRate = agreed / totalDays;
+    const paidDays = paidThroughDays(paid, agreed, totalDays);
+    const livedDays = Math.min(
+      totalDays,
+      Math.max(0, stayDays(s.dateFrom, tomorrow)),
+    );
+    const debt = Math.round(Math.max(0, livedDays - paidDays) * dailyRate);
+    if (debt > 0) {
+      livedDebtTotal += debt;
+      debtorsCount += 1;
+    }
+  }
+
   const income = Number(incomeAgg._sum.amount ?? 0);
   const expenses = Number(expenseAgg._sum.amount ?? 0);
   const profit = income - expenses;
@@ -165,6 +188,16 @@ export default async function PropertyDashboardPage({
               label="Занято сейчас"
               value={`${occupied}`}
               hint={`загрузка ${occupancyPct}%`}
+            />
+            <StatCard
+              label="Долг за прожитые дни"
+              value={formatMoney(livedDebtTotal)}
+              tone={livedDebtTotal > 0 ? "bad" : "good"}
+              hint={
+                debtorsCount > 0
+                  ? `не оплатили: ${debtorsCount} чел.`
+                  : "все оплачено"
+              }
             />
             <StatCard
               label={`Доход за ${monthName}`}
