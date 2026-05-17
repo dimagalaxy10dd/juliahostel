@@ -1,5 +1,5 @@
 // Hostel Manager — схема базы данных
-// Dev: SQLite. Для прод-Postgres сменить provider на "postgresql".
+// База: PostgreSQL (Supabase). Подключение — в .env (DATABASE_URL / DIRECT_URL).
 
 generator client {
   provider = "prisma-client"
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 // Пользователь системы: владелец или администратор
