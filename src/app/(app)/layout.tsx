@@ -18,8 +18,9 @@ export default async function AppLayout({
     <div className="flex flex-1 flex-col">
       <header className="bg-card border-b">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link href="/objects" className="font-semibold">
-            Управление хостелом
+          <Link href="/objects" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Julia" className="h-7 w-auto sm:h-8" />
           </Link>
           <ObjectSwitcher
             properties={properties}

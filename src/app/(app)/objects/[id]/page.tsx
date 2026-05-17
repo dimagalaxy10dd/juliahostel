@@ -149,7 +149,7 @@ export default async function PropertyDashboardPage({
             href={`/objects/${id}/structure`}
             className="text-primary mt-2 inline-block font-medium hover:underline"
           >
-            Перейти к структуре →
+            Перейти к настройкам →
           </Link>
         </div>
       ) : (

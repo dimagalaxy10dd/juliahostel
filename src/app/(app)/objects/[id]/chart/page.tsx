@@ -81,7 +81,6 @@ export default async function PropertyChartPage({
   const stayRows = await prisma.stay.findMany({
     where: {
       bed: { room: { building: { propertyId: id } } },
-      status: "ACTIVE",
       dateFrom: { lt: addDays(monthEnd, 2) },
       dateTo: { gt: addDays(monthStart, -1) },
     },
@@ -94,8 +93,11 @@ export default async function PropertyChartPage({
     dateFrom: s.dateFrom.toISOString().slice(0, 10),
     dateTo: s.dateTo.toISOString().slice(0, 10),
     rateType: s.rateType as RateType,
+    status: s.status,
     agreedAmount: Number(s.agreedAmount),
     paidTotal: s.payments.reduce((sum, p) => sum + Number(p.amount), 0),
+    refundAmount: s.refundAmount != null ? Number(s.refundAmount) : null,
+    refundedAt: s.refundedAt ? s.refundedAt.toISOString() : null,
   }));
 
   const residents = await prisma.resident.findMany({
@@ -127,7 +129,7 @@ export default async function PropertyChartPage({
             href={`/objects/${id}/structure`}
             className="text-primary mt-2 inline-block font-medium hover:underline"
           >
-            Перейти к структуре →
+            Перейти к настройкам →
           </Link>
         </div>
       ) : (

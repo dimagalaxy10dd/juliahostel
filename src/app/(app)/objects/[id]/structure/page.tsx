@@ -114,7 +114,7 @@ export default async function StructurePage({
       <PropertyTabs propertyId={property.id} active="structure" />
 
       <p className="text-muted-foreground">
-        Помещения, комнаты, места и цены.
+        Настройки объекта: помещения, комнаты, места и цены.
       </p>
 
       <AddDialog

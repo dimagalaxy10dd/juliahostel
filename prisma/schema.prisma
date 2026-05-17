@@ -89,6 +89,8 @@ model Stay {
   rateType     String // DAILY | WEEKLY | MONTHLY
   agreedAmount Decimal
   status       String    @default("ACTIVE") // ACTIVE | ENDED
+  refundAmount Decimal? // рассчитанная сумма к возврату при раннем выезде
+  refundedAt   DateTime? // когда возврат фактически выдан (null — ещё не выдан)
   createdAt    DateTime  @default(now())
   payments     Payment[]
 

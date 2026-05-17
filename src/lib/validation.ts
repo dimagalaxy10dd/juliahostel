@@ -38,7 +38,7 @@ export const staySchema = z
     dateFrom: z.string().min(1, "Укажите дату заезда"),
     dateTo: z.string().min(1, "Укажите дату выезда"),
     rateType: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
-    amount: z.coerce.number().min(0, "Сумма не может быть меньше 0"),
+    received: z.coerce.number().min(0, "Сумма не может быть меньше 0"),
   })
   .refine((v) => v.dateTo > v.dateFrom, {
     message: "Дата выезда должна быть позже даты заезда",
@@ -52,7 +52,12 @@ export const paymentSchema = z.object({
 export const extendSchema = z.object({
   newDateTo: z.string().min(1, "Укажите новую дату выезда"),
   rateType: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
-  amount: z.coerce.number().min(0, "Сумма не может быть меньше 0"),
+  received: z.coerce.number().min(0, "Сумма не может быть меньше 0"),
+});
+
+export const checkoutSchema = z.object({
+  actualDateTo: z.string().min(1, "Укажите дату выезда"),
+  refundRateType: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
 });
 
 export const expenseCategorySchema = z.object({

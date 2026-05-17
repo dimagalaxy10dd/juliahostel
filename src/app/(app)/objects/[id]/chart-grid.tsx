@@ -1,5 +1,6 @@
 "use client";
 
+import { addDays, format } from "date-fns";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -8,10 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  type PayState,
   RATE_LABELS,
   type RateType,
-  payState,
+  paidThroughDays,
   stayDays,
   suggestAmount,
 } from "@/lib/billing";
@@ -21,6 +21,7 @@ import {
   createStay,
   deleteStay,
   extendStay,
+  issueRefund,
   recordPayment,
 } from "../actions";
 
@@ -41,8 +42,11 @@ export type ChartStay = {
   dateFrom: string;
   dateTo: string;
   rateType: RateType;
+  status: string;
   agreedAmount: number;
   paidTotal: number;
+  refundAmount: number | null;
+  refundedAt: string | null;
 };
 
 export type ChartRoom = {
@@ -52,20 +56,17 @@ export type ChartRoom = {
   beds: ChartBed[];
 };
 
-const STATUS_STYLE: Record<PayState, string> = {
-  paid: "bg-emerald-200 text-emerald-950",
-  unpaid: "bg-amber-200 text-amber-950",
-  overdue: "bg-rose-300 text-rose-950",
-};
-
-const STATUS_LABEL: Record<PayState, string> = {
-  paid: "Оплачено",
-  unpaid: "Есть долг",
-  overdue: "Срок истёк",
-};
+// Цвета полосок проживания
+const CLR_PAID = "#a7f3d0"; // оплаченные дни — зелёный
+const CLR_DUE = "#fde68a"; // неоплаченные дни — жёлтый
+const CLR_OVERDUE = "#fda4af"; // просрочено — красный
 
 function fmtDate(iso: string): string {
   return iso.split("-").reverse().join(".");
+}
+
+function addDaysIso(iso: string, n: number): string {
+  return format(addDays(new Date(iso), n), "yyyy-MM-dd");
 }
 
 type DialogState =
@@ -95,16 +96,6 @@ export function ChartGrid({
   const [dialog, setDialog] = useState<DialogState>(null);
   const today = new Date().toISOString().slice(0, 10);
 
-  function stayFor(bedId: string, day: string): ChartStay | undefined {
-    return stays.find(
-      (s) => s.bedId === bedId && s.dateFrom <= day && day < s.dateTo,
-    );
-  }
-
-  function stateOf(s: ChartStay): PayState {
-    return payState(s.agreedAmount - s.paidTotal, s.dateTo, today);
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-3">
@@ -114,7 +105,7 @@ export function ChartGrid({
         >
           ←
         </Link>
-        <span className="min-w-44 text-center text-lg font-semibold">
+        <span className="min-w-40 text-center text-lg font-semibold sm:min-w-44">
           {monthLabel}
         </span>
         <Link
@@ -126,26 +117,24 @@ export function ChartGrid({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-        {(["paid", "unpaid", "overdue"] as PayState[]).map((s) => (
-          <span key={s} className="flex items-center gap-1.5">
-            <span
-              className={`inline-block h-3 w-4 rounded-sm ${STATUS_STYLE[s]}`}
-            />
-            {STATUS_LABEL[s]}
-          </span>
-        ))}
+        <Legend color={CLR_PAID} label="Оплаченные дни" />
+        <Legend color={CLR_DUE} label="Есть долг" />
+        <Legend color={CLR_OVERDUE} label="Срок истёк" />
       </div>
 
       <p className="text-muted-foreground text-sm">
-        Нажмите на свободную клетку, чтобы заселить жильца. Нажмите на цветную
-        полоску, чтобы открыть заселение.
+        Нажмите на свободную клетку, чтобы заселить жильца. Нажмите на полоску
+        жильца, чтобы открыть заселение.
       </p>
 
       <div className="bg-card overflow-x-auto rounded-lg border">
-        <table className="border-collapse text-sm">
+        <table
+          className="w-full table-fixed border-collapse text-sm"
+          style={{ minWidth: `${104 + days.length * 25}px` }}
+        >
           <thead>
             <tr>
-              <th className="bg-muted sticky left-0 z-20 w-36 min-w-36 border-b border-r px-3 py-2 text-left">
+              <th className="bg-muted sticky left-0 z-20 w-[104px] border-b border-r px-2 py-2 text-left">
                 Место
               </th>
               {days.map((d) => {
@@ -154,7 +143,7 @@ export function ChartGrid({
                 return (
                   <th
                     key={d}
-                    className={`w-9 min-w-9 border-b border-r px-0 py-2 text-center font-medium ${
+                    className={`border-b border-r px-0 py-2 text-center text-xs font-medium ${
                       isToday
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground"
@@ -173,8 +162,7 @@ export function ChartGrid({
                 room={room}
                 days={days}
                 today={today}
-                stayFor={stayFor}
-                stateOf={stateOf}
+                stays={stays}
                 onCreate={(bed, date) => setDialog({ type: "create", bed, date })}
                 onView={(bed, stay) => setDialog({ type: "view", bed, stay })}
               />
@@ -199,6 +187,7 @@ export function ChartGrid({
           bed={dialog.bed}
           stay={dialog.stay}
           propertyId={propertyId}
+          today={today}
           onClose={() => setDialog(null)}
         />
       )}
@@ -206,20 +195,55 @@ export function ChartGrid({
   );
 }
 
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className="inline-block h-3 w-5 rounded-sm"
+        style={{ backgroundColor: color }}
+      />
+      {label}
+    </span>
+  );
+}
+
+type RowSegment =
+  | { kind: "free"; idx: number }
+  | { kind: "stay"; stay: ChartStay; span: number; startIdx: number };
+
+// Разбивает строку места на отрезки: свободные клетки и полоски проживаний.
+function buildRow(bedId: string, days: string[], stays: ChartStay[]): RowSegment[] {
+  const segs: RowSegment[] = [];
+  let i = 0;
+  while (i < days.length) {
+    const stay = stays.find(
+      (s) => s.bedId === bedId && s.dateFrom <= days[i] && days[i] < s.dateTo,
+    );
+    if (stay) {
+      let span = 1;
+      while (i + span < days.length && days[i + span] < stay.dateTo) span++;
+      segs.push({ kind: "stay", stay, span, startIdx: i });
+      i += span;
+    } else {
+      segs.push({ kind: "free", idx: i });
+      i++;
+    }
+  }
+  return segs;
+}
+
 function ChartRoomRows({
   room,
   days,
   today,
-  stayFor,
-  stateOf,
+  stays,
   onCreate,
   onView,
 }: {
   room: ChartRoom;
   days: string[];
   today: string;
-  stayFor: (bedId: string, day: string) => ChartStay | undefined;
-  stateOf: (s: ChartStay) => PayState;
+  stays: ChartStay[];
   onCreate: (bed: ChartBed, date: string) => void;
   onView: (bed: ChartBed, stay: ChartStay) => void;
 }) {
@@ -228,49 +252,83 @@ function ChartRoomRows({
       <tr>
         <td
           colSpan={days.length + 1}
-          className="bg-muted text-muted-foreground sticky left-0 border-b border-t px-3 py-1.5 text-xs font-semibold"
+          className="bg-muted text-muted-foreground sticky left-0 border-b border-t px-2 py-1.5 text-xs font-semibold"
         >
           {room.buildingName} — {room.roomName}
         </td>
       </tr>
       {room.beds.map((bed) => (
         <tr key={bed.id}>
-          <td className="bg-card sticky left-0 z-10 w-36 min-w-36 border-b border-r px-3 py-2 font-medium">
+          <td className="bg-card sticky left-0 z-10 w-[104px] truncate border-b border-r px-2 py-2 text-xs font-medium">
             {bed.label}
           </td>
-          {days.map((d) => {
-            const stay = stayFor(bed.id, d);
-            if (stay) {
-              const showName =
-                d === stay.dateFrom || (d === days[0] && stay.dateFrom < d);
+          {buildRow(bed.id, days, stays).map((seg) => {
+            if (seg.kind === "free") {
+              const d = days[seg.idx];
               return (
                 <td
                   key={d}
-                  onClick={() => onView(bed, stay)}
-                  title={stay.residentName}
-                  className={`h-9 cursor-pointer border-b border-r ${STATUS_STYLE[stateOf(stay)]}`}
-                >
-                  {showName && (
-                    <span className="pointer-events-none relative z-10 whitespace-nowrap px-1 text-xs font-medium">
-                      {stay.residentName}
-                    </span>
-                  )}
-                </td>
+                  onClick={() => onCreate(bed, d)}
+                  className={`hover:bg-primary/10 h-9 cursor-pointer border-b border-r ${
+                    d === today ? "bg-primary/5" : ""
+                  }`}
+                />
               );
             }
             return (
-              <td
-                key={d}
-                onClick={() => onCreate(bed, d)}
-                className={`hover:bg-primary/10 h-9 cursor-pointer border-b border-r ${
-                  d === today ? "bg-primary/5" : ""
-                }`}
+              <StayCell
+                key={seg.stay.id + seg.startIdx}
+                seg={seg}
+                days={days}
+                today={today}
+                onClick={() => onView(bed, seg.stay)}
               />
             );
           })}
         </tr>
       ))}
     </>
+  );
+}
+
+function StayCell({
+  seg,
+  days,
+  today,
+  onClick,
+}: {
+  seg: { stay: ChartStay; span: number; startIdx: number };
+  days: string[];
+  today: string;
+  onClick: () => void;
+}) {
+  const { stay, span, startIdx } = seg;
+  const totalDays = stayDays(new Date(stay.dateFrom), new Date(stay.dateTo));
+  const paidDays = paidThroughDays(stay.paidTotal, stay.agreedAmount, totalDays);
+  const paidUntil = addDaysIso(stay.dateFrom, paidDays);
+
+  const spanDays = days.slice(startIdx, startIdx + span);
+  const paidInSpan = spanDays.filter((d) => d < paidUntil).length;
+  const pct = Math.round((paidInSpan / span) * 100);
+
+  const balance = stay.agreedAmount - stay.paidTotal;
+  const overdue = stay.dateTo <= today && balance > 0;
+  const restColor = overdue ? CLR_OVERDUE : CLR_DUE;
+
+  return (
+    <td
+      colSpan={span}
+      onClick={onClick}
+      title={`${stay.residentName} · ${fmtDate(stay.dateFrom)}–${fmtDate(stay.dateTo)}`}
+      className="h-9 cursor-pointer overflow-hidden border-b border-r"
+      style={{
+        background: `linear-gradient(90deg, ${CLR_PAID} 0 ${pct}%, ${restColor} ${pct}% 100%)`,
+      }}
+    >
+      <span className="block truncate px-1.5 text-center text-xs font-medium text-neutral-900">
+        {stay.residentName}
+      </span>
+    </td>
   );
 }
 
@@ -291,8 +349,8 @@ function CheckInDialog({
   const [from, setFrom] = useState(date);
   const [to, setTo] = useState("");
   const [rateType, setRateType] = useState<RateType>("DAILY");
-  const [amount, setAmount] = useState("0");
-  const [amountEdited, setAmountEdited] = useState(false);
+  const [received, setReceived] = useState("0");
+  const [receivedEdited, setReceivedEdited] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [pending, setPending] = useState(false);
 
@@ -300,8 +358,8 @@ function CheckInDialog({
   const suggested = suggestAmount(rateType, days, bed);
 
   useEffect(() => {
-    if (!amountEdited) setAmount(String(suggested));
-  }, [suggested, amountEdited]);
+    if (!receivedEdited) setReceived(String(suggested));
+  }, [suggested, receivedEdited]);
 
   async function handleSubmit(formData: FormData) {
     setPending(true);
@@ -364,21 +422,26 @@ function CheckInDialog({
               type="date"
               name="dateTo"
               value={to}
+              min={from || undefined}
               onChange={(e) => setTo(e.target.value)}
               required
               className="h-11"
             />
           </div>
         </div>
-        <RateSelect value={rateType} onChange={setRateType} />
+        <RateSelect name="rateType" value={rateType} onChange={setRateType} />
+        <SuggestBox
+          label={`К оплате по тарифу${days > 0 ? ` (за ${days} дн.)` : ""}`}
+          value={suggested}
+        />
         <AmountField
-          label={`Сумма к оплате${days > 0 ? ` (за ${days} дн.)` : ""}`}
-          value={amount}
+          label="Сумма получена"
+          name="received"
+          value={received}
           onChange={(v) => {
-            setAmount(v);
-            setAmountEdited(true);
+            setReceived(v);
+            setReceivedEdited(true);
           }}
-          hint={!amountEdited && days > 0}
         />
         {error && <ErrorText>{error}</ErrorText>}
         <Button
@@ -393,23 +456,29 @@ function CheckInDialog({
   );
 }
 
+type Panel = "main" | "pay" | "extend" | "checkout" | "confirmDelete";
+
 function StayDialog({
   bed,
   stay,
   propertyId,
+  today,
   onClose,
 }: {
   bed: ChartBed;
   stay: ChartStay;
   propertyId: string;
+  today: string;
   onClose: () => void;
 }) {
-  const [panel, setPanel] = useState<"main" | "pay" | "extend">("main");
+  const [panel, setPanel] = useState<Panel>("main");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
   const days = stayDays(new Date(stay.dateFrom), new Date(stay.dateTo));
   const balance = stay.agreedAmount - stay.paidTotal;
+  const ended = stay.status === "ENDED";
+  const refundPending = stay.refundAmount != null && !stay.refundedAt;
 
   async function runVoid(action: () => Promise<void>, message: string) {
     setPending(true);
@@ -420,27 +489,6 @@ function StayDialog({
     } catch {
       setPending(false);
     }
-  }
-
-  async function handleCheckout() {
-    if (!window.confirm(`Выселить «${stay.residentName}»? Место освободится.`))
-      return;
-    await runVoid(() => {
-      const fd = new FormData();
-      fd.set("id", stay.id);
-      fd.set("propertyId", propertyId);
-      return checkoutStay(fd);
-    }, "Жилец выселен");
-  }
-
-  async function handleDelete() {
-    if (!window.confirm(`Удалить заселение «${stay.residentName}»?`)) return;
-    await runVoid(() => {
-      const fd = new FormData();
-      fd.set("id", stay.id);
-      fd.set("propertyId", propertyId);
-      return deleteStay(fd);
-    }, "Заселение удалено");
   }
 
   async function submitForm(
@@ -468,6 +516,13 @@ function StayDialog({
     }
   }
 
+  function handleIssueRefund() {
+    const fd = new FormData();
+    fd.set("stayId", stay.id);
+    fd.set("propertyId", propertyId);
+    submitForm(issueRefund, fd, "Возврат отмечен как выданный");
+  }
+
   return (
     <Modal open onClose={onClose} title={stay.residentName}>
       {panel === "main" && (
@@ -480,6 +535,7 @@ function StayDialog({
               {fmtDate(stay.dateFrom)} — {fmtDate(stay.dateTo)} ({days} дн.)
             </Row>
             <Row label="Тариф">{RATE_LABELS[stay.rateType]}</Row>
+            {ended && <Row label="Статус">Выехал</Row>}
           </dl>
 
           <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
@@ -497,6 +553,29 @@ function StayDialog({
             </div>
           </div>
 
+          {refundPending && (
+            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+              <p className="text-sm">
+                Возврат к выдаче:{" "}
+                <span className="font-semibold">
+                  {formatMoney(stay.refundAmount ?? 0)}
+                </span>
+              </p>
+              <Button
+                onClick={handleIssueRefund}
+                disabled={pending}
+                className="h-10 w-full"
+              >
+                Отметить, что возврат выдан
+              </Button>
+            </div>
+          )}
+          {stay.refundedAt && (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+              Возврат выдан.
+            </p>
+          )}
+
           {balance > 0 && (
             <Button
               onClick={() => setPanel("pay")}
@@ -506,28 +585,30 @@ function StayDialog({
             </Button>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setPanel("extend")}
-              disabled={pending}
-              className="h-11"
-            >
-              Продлить срок
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleCheckout}
-              disabled={pending}
-              className="h-11"
-            >
-              Выселить
-            </Button>
-          </div>
+          {!ended && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setPanel("extend")}
+                disabled={pending}
+                className="h-11"
+              >
+                Продлить срок
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setPanel("checkout")}
+                disabled={pending}
+                className="h-11"
+              >
+                Выселить
+              </Button>
+            </div>
+          )}
 
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => setPanel("confirmDelete")}
             disabled={pending}
             className="text-muted-foreground hover:text-destructive w-full text-center text-sm"
           >
@@ -565,6 +646,57 @@ function StayDialog({
           onSubmit={(fd) => submitForm(extendStay, fd, "Срок продлён")}
         />
       )}
+
+      {panel === "checkout" && (
+        <CheckoutPanel
+          bed={bed}
+          stay={stay}
+          propertyId={propertyId}
+          today={today}
+          pending={pending}
+          error={error}
+          onBack={() => {
+            setPanel("main");
+            setError(undefined);
+          }}
+          onSubmit={(fd) => submitForm(checkoutStay, fd, "Жилец выселен")}
+        />
+      )}
+
+      {panel === "confirmDelete" && (
+        <div className="space-y-4">
+          <p className="text-sm">
+            Удалить заселение «{stay.residentName}» полностью? Это действие
+            нельзя отменить, оплаты по нему тоже удалятся.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPanel("main")}
+              disabled={pending}
+              className="h-11 flex-1"
+            >
+              Отмена
+            </Button>
+            <Button
+              type="button"
+              onClick={() =>
+                runVoid(() => {
+                  const fd = new FormData();
+                  fd.set("id", stay.id);
+                  fd.set("propertyId", propertyId);
+                  return deleteStay(fd);
+                }, "Заселение удалено")
+              }
+              disabled={pending}
+              className="bg-destructive h-11 flex-1 text-white"
+            >
+              Удалить
+            </Button>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
@@ -597,6 +729,7 @@ function PayPanel({
       </p>
       <AmountField
         label="Сколько получено"
+        name="amount"
         value={amount}
         onChange={setAmount}
       />
@@ -637,8 +770,8 @@ function ExtendPanel({
 }) {
   const [newDateTo, setNewDateTo] = useState(stay.dateTo);
   const [rateType, setRateType] = useState<RateType>(stay.rateType);
-  const [amount, setAmount] = useState("0");
-  const [amountEdited, setAmountEdited] = useState(false);
+  const [received, setReceived] = useState("0");
+  const [receivedEdited, setReceivedEdited] = useState(false);
 
   const extDays =
     newDateTo > stay.dateTo
@@ -647,8 +780,8 @@ function ExtendPanel({
   const suggested = suggestAmount(rateType, extDays, bed);
 
   useEffect(() => {
-    if (!amountEdited) setAmount(String(suggested));
-  }, [suggested, amountEdited]);
+    if (!receivedEdited) setReceived(String(suggested));
+  }, [suggested, receivedEdited]);
 
   return (
     <form action={onSubmit} className="space-y-4">
@@ -669,25 +802,20 @@ function ExtendPanel({
           className="h-11"
         />
       </div>
-      <RateSelect value={rateType} onChange={setRateType} />
-      <AmountField
-        label={`Доплата${extDays > 0 ? ` (за ${extDays} дн.)` : ""}`}
-        value={amount}
-        onChange={(v) => {
-          setAmount(v);
-          setAmountEdited(true);
-        }}
-        hint={!amountEdited && extDays > 0}
+      <RateSelect name="rateType" value={rateType} onChange={setRateType} />
+      <SuggestBox
+        label={`К доплате по тарифу${extDays > 0 ? ` (за ${extDays} дн.)` : ""}`}
+        value={suggested}
       />
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          name="markPaid"
-          defaultChecked
-          className="size-4"
-        />
-        Оплата за продление получена
-      </label>
+      <AmountField
+        label="Доплата получена"
+        name="received"
+        value={received}
+        onChange={(v) => {
+          setReceived(v);
+          setReceivedEdited(true);
+        }}
+      />
       {error && <ErrorText>{error}</ErrorText>}
       <div className="flex gap-2">
         <Button
@@ -706,18 +834,123 @@ function ExtendPanel({
   );
 }
 
+function CheckoutPanel({
+  bed,
+  stay,
+  propertyId,
+  today,
+  pending,
+  error,
+  onBack,
+  onSubmit,
+}: {
+  bed: ChartBed;
+  stay: ChartStay;
+  propertyId: string;
+  today: string;
+  pending: boolean;
+  error?: string;
+  onBack: () => void;
+  onSubmit: (fd: FormData) => void;
+}) {
+  const defaultDate = today > stay.dateFrom ? today : stay.dateTo;
+  const [actualDateTo, setActualDateTo] = useState(defaultDate);
+  const [rateType, setRateType] = useState<RateType>(stay.rateType);
+
+  const actualDays =
+    actualDateTo > stay.dateFrom
+      ? stayDays(new Date(stay.dateFrom), new Date(actualDateTo))
+      : 0;
+  const owed = suggestAmount(rateType, actualDays, bed);
+  const refund = stay.paidTotal - owed;
+
+  return (
+    <form action={onSubmit} className="space-y-4">
+      <input type="hidden" name="stayId" value={stay.id} />
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <p className="text-muted-foreground -mt-1 text-sm">
+        Жилец выезжает раньше срока. Укажите фактическую дату выезда — место
+        освободится с этого дня.
+      </p>
+      <div className="space-y-2">
+        <Label className="text-base">Фактическая дата выезда</Label>
+        <Input
+          type="date"
+          name="actualDateTo"
+          value={actualDateTo}
+          min={addDaysIso(stay.dateFrom, 1)}
+          onChange={(e) => setActualDateTo(e.target.value)}
+          required
+          className="h-11"
+        />
+      </div>
+      <RateSelect
+        name="refundRateType"
+        label="Пересчитать по тарифу"
+        value={rateType}
+        onChange={setRateType}
+      />
+      <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
+        <Row label="Дней проживания">{actualDays} дн.</Row>
+        <Row label="Стоимость по тарифу">{formatMoney(owed)}</Row>
+        <Row label="Уже оплачено">{formatMoney(stay.paidTotal)}</Row>
+        <div className="flex justify-between gap-4 border-t pt-1">
+          <dt className="font-medium">
+            {refund >= 0 ? "К возврату жильцу" : "Долг жильца"}
+          </dt>
+          <dd
+            className={`font-semibold ${
+              refund > 0
+                ? "text-emerald-700"
+                : refund < 0
+                  ? "text-destructive"
+                  : ""
+            }`}
+          >
+            {formatMoney(Math.abs(refund))}
+          </dd>
+        </div>
+      </div>
+      {refund > 0 && (
+        <p className="text-muted-foreground text-xs">
+          Сумма к возврату сохранится. Выдать деньги можно отдельной кнопкой
+          после выселения.
+        </p>
+      )}
+      {error && <ErrorText>{error}</ErrorText>}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBack}
+          className="h-11"
+        >
+          ← Назад
+        </Button>
+        <Button type="submit" disabled={pending} className="h-11 flex-1">
+          {pending ? "Сохранение…" : "Выселить"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function RateSelect({
+  name,
+  label = "Тариф",
   value,
   onChange,
 }: {
+  name: string;
+  label?: string;
   value: RateType;
   onChange: (v: RateType) => void;
 }) {
   return (
     <div className="space-y-2">
-      <Label className="text-base">Тариф</Label>
+      <Label className="text-base">{label}</Label>
       <select
-        name="rateType"
+        name={name}
         value={value}
         onChange={(e) => onChange(e.target.value as RateType)}
         className="border-input bg-background h-11 w-full rounded-lg border px-3 text-base"
@@ -730,33 +963,37 @@ function RateSelect({
   );
 }
 
+function SuggestBox({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-muted flex items-center justify-between rounded-lg px-3 py-2.5">
+      <span className="text-muted-foreground text-sm">{label}</span>
+      <span className="font-semibold">{formatMoney(value)}</span>
+    </div>
+  );
+}
+
 function AmountField({
   label,
+  name,
   value,
   onChange,
-  hint,
 }: {
   label: string;
+  name: string;
   value: string;
   onChange: (v: string) => void;
-  hint?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <Label className="text-base">{label}</Label>
       <Input
         type="number"
-        name="amount"
+        name={name}
         min="0"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="h-11 text-base"
       />
-      {hint && (
-        <p className="text-muted-foreground text-xs">
-          Рассчитано автоматически — сумму можно изменить.
-        </p>
-      )}
     </div>
   );
 }

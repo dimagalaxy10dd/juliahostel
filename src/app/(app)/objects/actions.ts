@@ -11,6 +11,7 @@ import type { ActionResult, ReceiptResult } from "@/lib/types";
 import {
   bedSchema,
   buildingSchema,
+  checkoutSchema,
   expenseCategorySchema,
   expenseSchema,
   extendSchema,
@@ -20,6 +21,7 @@ import {
   roomSchema,
   staySchema,
 } from "@/lib/validation";
+import { stayDays, suggestAmount } from "@/lib/billing";
 
 async function requireAuth() {
   const session = await auth();
@@ -253,17 +255,12 @@ export async function createStay(
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
   const propertyId = str(formData, "propertyId");
-  const { bedId, residentName, rateType, amount } = parsed.data;
+  const { bedId, residentName, rateType, received } = parsed.data;
   const from = new Date(parsed.data.dateFrom);
   const to = new Date(parsed.data.dateTo);
 
   const overlap = await prisma.stay.findFirst({
-    where: {
-      bedId,
-      status: "ACTIVE",
-      dateFrom: { lt: to },
-      dateTo: { gt: from },
-    },
+    where: { bedId, dateFrom: { lt: to }, dateTo: { gt: from } },
   });
   if (overlap) {
     return {
@@ -271,6 +268,14 @@ export async function createStay(
       error: "На это место уже есть заселение в выбранные даты",
     };
   }
+
+  const bed = await prisma.bed.findUnique({ where: { id: bedId } });
+  if (!bed) return { ok: false, error: "Место не найдено" };
+  const agreedAmount = suggestAmount(rateType, stayDays(from, to), {
+    priceDaily: Number(bed.priceDaily),
+    priceWeekly: Number(bed.priceWeekly),
+    priceMonthly: Number(bed.priceMonthly),
+  });
 
   let resident = await prisma.resident.findFirst({
     where: { propertyId, fullName: residentName },
@@ -281,17 +286,20 @@ export async function createStay(
     });
   }
 
-  await prisma.stay.create({
+  const stay = await prisma.stay.create({
     data: {
       bedId,
       residentId: resident.id,
       dateFrom: from,
       dateTo: to,
       rateType,
-      agreedAmount: amount,
+      agreedAmount,
       status: "ACTIVE",
     },
   });
+  if (received > 0) {
+    await prisma.payment.create({ data: { stayId: stay.id, amount: received } });
+  }
   revalidatePath(`/objects/${propertyId}`);
   return { ok: true };
 }
@@ -330,14 +338,17 @@ export async function extendStay(
   const parsed = extendSchema.safeParse({
     newDateTo: str(formData, "newDateTo"),
     rateType: str(formData, "rateType"),
-    amount: str(formData, "amount"),
+    received: str(formData, "received"),
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
   const stayId = str(formData, "stayId");
   const propertyId = str(formData, "propertyId");
-  const stay = await prisma.stay.findUnique({ where: { id: stayId } });
+  const stay = await prisma.stay.findUnique({
+    where: { id: stayId },
+    include: { bed: true },
+  });
   if (!stay) return { ok: false, error: "Заселение не найдено" };
 
   const newTo = new Date(parsed.data.newDateTo);
@@ -351,7 +362,6 @@ export async function extendStay(
   const overlap = await prisma.stay.findFirst({
     where: {
       bedId: stay.bedId,
-      status: "ACTIVE",
       id: { not: stayId },
       dateFrom: { lt: newTo },
       dateTo: { gt: stay.dateFrom },
@@ -361,17 +371,28 @@ export async function extendStay(
     return { ok: false, error: "Продление пересекается с другим заселением" };
   }
 
+  const extCost = suggestAmount(
+    parsed.data.rateType,
+    stayDays(stay.dateTo, newTo),
+    {
+      priceDaily: Number(stay.bed.priceDaily),
+      priceWeekly: Number(stay.bed.priceWeekly),
+      priceMonthly: Number(stay.bed.priceMonthly),
+    },
+  );
+
   await prisma.stay.update({
     where: { id: stayId },
     data: {
       dateTo: newTo,
+      status: "ACTIVE",
       rateType: parsed.data.rateType,
-      agreedAmount: { increment: parsed.data.amount },
+      agreedAmount: { increment: extCost },
     },
   });
-  if (str(formData, "markPaid") === "on" && parsed.data.amount > 0) {
+  if (parsed.data.received > 0) {
     await prisma.payment.create({
-      data: { stayId, amount: parsed.data.amount, note: "Продление" },
+      data: { stayId, amount: parsed.data.received, note: "Продление" },
     });
   }
   revalidatePath(`/objects/${propertyId}`);
@@ -379,14 +400,85 @@ export async function extendStay(
   return { ok: true };
 }
 
-export async function checkoutStay(formData: FormData): Promise<void> {
+// Ранний выезд: укорачиваем срок, пересчитываем стоимость по выбранному
+// тарифу и считаем сумму к возврату (если жилец переплатил).
+export async function checkoutStay(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
   await requireAuth();
-  await prisma.stay.update({
-    where: { id: str(formData, "id") },
-    data: { status: "ENDED" },
+  const parsed = checkoutSchema.safeParse({
+    actualDateTo: str(formData, "actualDateTo"),
+    refundRateType: str(formData, "refundRateType"),
   });
-  revalidatePath(`/objects/${str(formData, "propertyId")}`);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message };
+  }
+  const stayId = str(formData, "stayId");
+  const propertyId = str(formData, "propertyId");
+  const stay = await prisma.stay.findUnique({
+    where: { id: stayId },
+    include: { bed: true, payments: true },
+  });
+  if (!stay) return { ok: false, error: "Заселение не найдено" };
+
+  const actualTo = new Date(parsed.data.actualDateTo);
+  if (actualTo <= stay.dateFrom) {
+    return { ok: false, error: "Дата выезда должна быть позже даты заезда" };
+  }
+
+  const actualDays = stayDays(stay.dateFrom, actualTo);
+  const owed = suggestAmount(parsed.data.refundRateType, actualDays, {
+    priceDaily: Number(stay.bed.priceDaily),
+    priceWeekly: Number(stay.bed.priceWeekly),
+    priceMonthly: Number(stay.bed.priceMonthly),
+  });
+  const paidTotal = stay.payments.reduce((n, p) => n + Number(p.amount), 0);
+  const refund = paidTotal - owed;
+
+  await prisma.stay.update({
+    where: { id: stayId },
+    data: {
+      dateTo: actualTo,
+      status: "ENDED",
+      agreedAmount: owed,
+      refundAmount: refund > 0 ? refund : null,
+      refundedAt: null,
+    },
+  });
+  revalidatePath(`/objects/${propertyId}`);
   revalidatePath("/");
+  return { ok: true };
+}
+
+// Отметить, что рассчитанный возврат фактически выдан жильцу.
+export async function issueRefund(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAuth();
+  const stayId = str(formData, "stayId");
+  const propertyId = str(formData, "propertyId");
+  const stay = await prisma.stay.findUnique({ where: { id: stayId } });
+  if (!stay) return { ok: false, error: "Заселение не найдено" };
+  if (stay.refundAmount == null || stay.refundedAt != null) {
+    return { ok: false, error: "Возврат не требуется или уже выдан" };
+  }
+
+  await prisma.payment.create({
+    data: {
+      stayId,
+      amount: -Number(stay.refundAmount),
+      note: "Возврат при раннем выезде",
+    },
+  });
+  await prisma.stay.update({
+    where: { id: stayId },
+    data: { refundedAt: new Date() },
+  });
+  revalidatePath(`/objects/${propertyId}`);
+  revalidatePath("/");
+  return { ok: true };
 }
 
 // --- Категории затрат ---

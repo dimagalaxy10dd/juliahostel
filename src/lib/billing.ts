@@ -46,3 +46,17 @@ export function payState(
   if (balance > 0) return "unpaid";
   return "paid";
 }
+
+// Сколько дней проживания покрыто оплатой.
+// Оплата пропорциональна согласованной сумме: оплачено половину — покрыта
+// половина дней. Если сумма не задана (0) — считаем всё оплаченным.
+export function paidThroughDays(
+  paidTotal: number,
+  agreedAmount: number,
+  totalDays: number,
+): number {
+  if (totalDays <= 0) return 0;
+  if (agreedAmount <= 0) return totalDays;
+  const fraction = Math.min(1, Math.max(0, paidTotal / agreedAmount));
+  return Math.round(fraction * totalDays);
+}
