@@ -213,9 +213,6 @@ export default async function FinancesPage({
         </ul>
       )}
 
-      <p className="text-muted-foreground text-sm">
-        Категории затрат настраиваются на вкладке «Настройки».
-      </p>
     </div>
   );
 }

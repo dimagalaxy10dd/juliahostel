@@ -188,6 +188,8 @@ export async function createResident(
     fullName: str(formData, "fullName"),
     phone: str(formData, "phone") || undefined,
     note: str(formData, "note") || undefined,
+    needsInvoice: str(formData, "needsInvoice"),
+    nip: str(formData, "nip") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message };
@@ -199,6 +201,8 @@ export async function createResident(
       fullName: parsed.data.fullName,
       phone: parsed.data.phone ?? null,
       note: parsed.data.note ?? null,
+      needsInvoice: parsed.data.needsInvoice,
+      nip: parsed.data.nip ?? null,
     },
   });
   revalidatePath(`/objects/${propertyId}/residents`);
@@ -214,6 +218,8 @@ export async function updateResident(
     fullName: str(formData, "fullName"),
     phone: str(formData, "phone") || undefined,
     note: str(formData, "note") || undefined,
+    needsInvoice: str(formData, "needsInvoice"),
+    nip: str(formData, "nip") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message };
@@ -224,6 +230,8 @@ export async function updateResident(
       fullName: parsed.data.fullName,
       phone: parsed.data.phone ?? null,
       note: parsed.data.note ?? null,
+      needsInvoice: parsed.data.needsInvoice,
+      nip: parsed.data.nip ?? null,
     },
   });
   revalidatePath(`/objects/${str(formData, "propertyId")}/residents`);
@@ -282,7 +290,12 @@ export async function createStay(
   });
   if (!resident) {
     resident = await prisma.resident.create({
-      data: { propertyId, fullName: residentName },
+      data: {
+        propertyId,
+        fullName: residentName,
+        needsInvoice: str(formData, "needsInvoice") === "on",
+        nip: str(formData, "nip").trim() || null,
+      },
     });
   }
 
@@ -435,7 +448,7 @@ export async function checkoutStay(
   });
   const paidTotal = stay.payments.reduce((n, p) => n + Number(p.amount), 0);
   const refund = paidTotal - owed;
-  const withRefund = str(formData, "withRefund") === "on";
+  const doRefund = str(formData, "withRefund") === "on" && refund > 0;
 
   await prisma.stay.update({
     where: { id: stayId },
@@ -443,40 +456,16 @@ export async function checkoutStay(
       dateTo: actualTo,
       status: "ENDED",
       agreedAmount: owed,
-      refundAmount: withRefund && refund > 0 ? refund : null,
-      refundedAt: null,
+      refundAmount: doRefund ? refund : null,
+      refundedAt: doRefund ? new Date() : null,
     },
   });
-  revalidatePath(`/objects/${propertyId}`);
-  revalidatePath("/");
-  return { ok: true };
-}
-
-// Отметить, что рассчитанный возврат фактически выдан жильцу.
-export async function issueRefund(
-  _prev: ActionResult | undefined,
-  formData: FormData,
-): Promise<ActionResult> {
-  await requireAuth();
-  const stayId = str(formData, "stayId");
-  const propertyId = str(formData, "propertyId");
-  const stay = await prisma.stay.findUnique({ where: { id: stayId } });
-  if (!stay) return { ok: false, error: "Заселение не найдено" };
-  if (stay.refundAmount == null || stay.refundedAt != null) {
-    return { ok: false, error: "Возврат не требуется или уже выдан" };
+  // Возврат выдаётся сразу при выселении — фиксируем как отрицательную оплату.
+  if (doRefund) {
+    await prisma.payment.create({
+      data: { stayId, amount: -refund, note: "Возврат при раннем выезде" },
+    });
   }
-
-  await prisma.payment.create({
-    data: {
-      stayId,
-      amount: -Number(stay.refundAmount),
-      note: "Возврат при раннем выезде",
-    },
-  });
-  await prisma.stay.update({
-    where: { id: stayId },
-    data: { refundedAt: new Date() },
-  });
   revalidatePath(`/objects/${propertyId}`);
   revalidatePath("/");
   return { ok: true };

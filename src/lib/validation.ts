@@ -29,6 +29,8 @@ export const residentSchema = z.object({
   fullName: z.string().trim().min(1, "Укажите имя жильца"),
   phone: z.string().trim().optional(),
   note: z.string().trim().optional(),
+  needsInvoice: z.coerce.boolean(),
+  nip: z.string().trim().optional(),
 });
 
 export const staySchema = z

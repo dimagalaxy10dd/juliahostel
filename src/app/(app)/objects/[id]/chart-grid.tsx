@@ -21,7 +21,6 @@ import {
   createStay,
   deleteStay,
   extendStay,
-  issueRefund,
   recordPayment,
 } from "../actions";
 
@@ -353,6 +352,8 @@ function CheckInDialog({
   const [rateType, setRateType] = useState<RateType>("DAILY");
   const [received, setReceived] = useState("0");
   const [receivedEdited, setReceivedEdited] = useState(false);
+  const [needsInvoice, setNeedsInvoice] = useState(false);
+  const [nip, setNip] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [pending, setPending] = useState(false);
 
@@ -445,6 +446,27 @@ function CheckInDialog({
             setReceivedEdited(true);
           }}
         />
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-base">
+            <input
+              type="checkbox"
+              name="needsInvoice"
+              checked={needsInvoice}
+              onChange={(e) => setNeedsInvoice(e.target.checked)}
+              className="size-4"
+            />
+            Нужна фактура
+          </label>
+          {needsInvoice && (
+            <Input
+              name="nip"
+              value={nip}
+              onChange={(e) => setNip(e.target.value)}
+              placeholder="Номер NIP"
+              className="h-11 text-base"
+            />
+          )}
+        </div>
         {error && <ErrorText>{error}</ErrorText>}
         <Button
           type="submit"
@@ -480,7 +502,6 @@ function StayDialog({
   const days = stayDays(new Date(stay.dateFrom), new Date(stay.dateTo));
   const balance = stay.agreedAmount - stay.paidTotal;
   const ended = stay.status === "ENDED";
-  const refundPending = stay.refundAmount != null && !stay.refundedAt;
 
   async function runVoid(action: () => Promise<void>, message: string) {
     setPending(true);
@@ -518,13 +539,6 @@ function StayDialog({
     }
   }
 
-  function handleIssueRefund() {
-    const fd = new FormData();
-    fd.set("stayId", stay.id);
-    fd.set("propertyId", propertyId);
-    submitForm(issueRefund, fd, "Возврат отмечен как выданный");
-  }
-
   return (
     <Modal open onClose={onClose} title={stay.residentName}>
       {panel === "main" && (
@@ -555,26 +569,9 @@ function StayDialog({
             </div>
           </div>
 
-          {refundPending && (
-            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-              <p className="text-sm">
-                Возврат к выдаче:{" "}
-                <span className="font-semibold">
-                  {formatMoney(stay.refundAmount ?? 0)}
-                </span>
-              </p>
-              <Button
-                onClick={handleIssueRefund}
-                disabled={pending}
-                className="h-10 w-full"
-              >
-                Отметить, что возврат выдан
-              </Button>
-            </div>
-          )}
-          {stay.refundedAt && (
+          {stay.refundedAt && stay.refundAmount != null && (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-              Возврат выдан.
+              Возврат выдан: {formatMoney(stay.refundAmount)}.
             </p>
           )}
 

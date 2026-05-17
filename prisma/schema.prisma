@@ -67,14 +67,16 @@ model Bed {
 
 // Жилец
 model Resident {
-  id         String   @id @default(cuid())
-  fullName   String
-  phone      String?
-  note       String?
-  createdAt  DateTime @default(now())
-  propertyId String
-  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  stays      Stay[]
+  id           String   @id @default(cuid())
+  fullName     String
+  phone        String?
+  note         String?
+  needsInvoice Boolean  @default(false) // нужна фактура
+  nip          String? // номер NIP для фактуры
+  createdAt    DateTime @default(now())
+  propertyId   String
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  stays        Stay[]
 }
 
 // Проживание — жилец занимает место на диапазон дат
