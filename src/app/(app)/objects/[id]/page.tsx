@@ -21,6 +21,21 @@ const MONTHS = [
   "декабрь",
 ];
 
+const MONTHS_SHORT = [
+  "янв",
+  "фев",
+  "мар",
+  "апр",
+  "май",
+  "июн",
+  "июл",
+  "авг",
+  "сен",
+  "окт",
+  "ноя",
+  "дек",
+];
+
 function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -47,17 +62,17 @@ export default async function PropertyDashboardPage({
   if (!property) notFound();
 
   const now = new Date();
-  const monthStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  );
-  const nextMonthStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
-  );
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const monthStart = new Date(Date.UTC(year, month, 1));
+  const nextMonthStart = new Date(Date.UTC(year, month + 1, 1));
+  const sixStart = new Date(Date.UTC(year, month - 5, 1));
   const todayIso = isoDay(now);
   const soonIso = isoDay(new Date(now.getTime() + 3 * 86400000));
-  const monthName = MONTHS[now.getUTCMonth()];
+  const tomorrow = new Date(now.getTime() + 86400000);
+  const monthName = MONTHS[month];
 
-  const [stayRows, expenseAgg, incomeAgg, bedCount, buildingCount, roomCount] =
+  const [stayRows, payments, expenses, bedCount, buildingCount, roomCount] =
     await Promise.all([
       prisma.stay.findMany({
         where: {
@@ -70,19 +85,19 @@ export default async function PropertyDashboardPage({
           bed: { include: { room: { include: { building: true } } } },
         },
       }),
-      prisma.expense.aggregate({
-        _sum: { amount: true },
-        where: {
-          propertyId: id,
-          spentOn: { gte: monthStart, lt: nextMonthStart },
-        },
-      }),
-      prisma.payment.aggregate({
-        _sum: { amount: true },
+      prisma.payment.findMany({
         where: {
           stay: { bed: { room: { building: { propertyId: id } } } },
-          paidAt: { gte: monthStart, lt: nextMonthStart },
+          paidAt: { gte: sixStart, lt: nextMonthStart },
         },
+        select: { amount: true, paidAt: true },
+      }),
+      prisma.expense.findMany({
+        where: {
+          propertyId: id,
+          spentOn: { gte: sixStart, lt: nextMonthStart },
+        },
+        select: { amount: true, spentOn: true },
       }),
       prisma.bed.count({
         where: { room: { building: { propertyId: id } } },
@@ -108,8 +123,6 @@ export default async function PropertyDashboardPage({
     (i) => i.dateFrom <= todayIso && todayIso < i.dateTo,
   ).length;
   const free = Math.max(0, bedCount - occupied);
-  const occupancyPct =
-    bedCount > 0 ? Math.round((occupied / bedCount) * 100) : 0;
 
   const overdue = items.filter((i) => i.dateTo <= todayIso);
   const endingSoon = items.filter(
@@ -117,8 +130,7 @@ export default async function PropertyDashboardPage({
   );
   const unpaid = items.filter((i) => i.balance > 0);
 
-  // Долг за уже прожитые, но не оплаченные дни (по всем активным заселениям).
-  const tomorrow = new Date(now.getTime() + 86400000);
+  // Долг за уже прожитые, но не оплаченные дни.
   let livedDebtTotal = 0;
   let debtorsCount = 0;
   for (const s of stayRows) {
@@ -139,9 +151,36 @@ export default async function PropertyDashboardPage({
     }
   }
 
-  const income = Number(incomeAgg._sum.amount ?? 0);
-  const expenses = Number(expenseAgg._sum.amount ?? 0);
-  const profit = income - expenses;
+  // Доход / расход по месяцам за последние 6 месяцев.
+  const buckets = [];
+  for (let k = 5; k >= 0; k--) {
+    const d = new Date(Date.UTC(year, month - k, 1));
+    buckets.push({
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth(),
+      income: 0,
+      expense: 0,
+    });
+  }
+  for (const p of payments) {
+    const b = buckets.find(
+      (x) =>
+        x.year === p.paidAt.getUTCFullYear() &&
+        x.month === p.paidAt.getUTCMonth(),
+    );
+    if (b) b.income += Number(p.amount);
+  }
+  for (const e of expenses) {
+    const b = buckets.find(
+      (x) =>
+        x.year === e.spentOn.getUTCFullYear() &&
+        x.month === e.spentOn.getUTCMonth(),
+    );
+    if (b) b.expense += Number(e.amount);
+  }
+  const series = buckets.map((b) => ({ ...b, profit: b.income - b.expense }));
+  const cur = series[series.length - 1];
+  const prev = series[series.length - 2];
 
   const allClear =
     overdue.length === 0 && endingSoon.length === 0 && unpaid.length === 0;
@@ -177,17 +216,11 @@ export default async function PropertyDashboardPage({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatCard label="Всего мест" value={String(bedCount)} />
+          <div className="grid grid-cols-2 gap-3">
             <StatCard
               label="Свободно сейчас"
-              value={String(free)}
-              tone="good"
-            />
-            <StatCard
-              label="Занято сейчас"
-              value={`${occupied}`}
-              hint={`загрузка ${occupancyPct}%`}
+              value={`${free}/${bedCount}`}
+              tone={free > 0 ? "good" : "bad"}
             />
             <StatCard
               label="Долг за прожитые дни"
@@ -199,18 +232,40 @@ export default async function PropertyDashboardPage({
                   : "все оплачено"
               }
             />
-            <StatCard
-              label={`Доход за ${monthName}`}
-              value={formatMoney(income)}
-            />
-            <StatCard
-              label={`Расход за ${monthName}`}
-              value={formatMoney(expenses)}
-            />
-            <StatCard
-              label={`Прибыль за ${monthName}`}
-              value={formatMoney(profit)}
-              tone={profit >= 0 ? "good" : "bad"}
+          </div>
+
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Финансы за {monthName}</h2>
+            <div className="grid grid-cols-3 gap-3">
+              <FinanceCard
+                label="Доход"
+                value={cur.income}
+                prev={prev.income}
+                goodWhenUp
+              />
+              <FinanceCard
+                label="Расход"
+                value={cur.expense}
+                prev={prev.expense}
+                goodWhenUp={false}
+              />
+              <FinanceCard
+                label="Прибыль"
+                value={cur.profit}
+                prev={prev.profit}
+                goodWhenUp
+                colorValue
+              />
+            </div>
+          </div>
+
+          <div className="bg-card space-y-3 rounded-lg border p-4">
+            <h2 className="text-base font-semibold">Доход по месяцам</h2>
+            <MonthlyBars
+              data={series.map((s) => ({
+                label: MONTHS_SHORT[s.month],
+                income: s.income,
+              }))}
             />
           </div>
 
@@ -284,6 +339,96 @@ function StatCard({
         {hint && <p className="text-muted-foreground text-xs">{hint}</p>}
       </CardContent>
     </Card>
+  );
+}
+
+function FinanceCard({
+  label,
+  value,
+  prev,
+  goodWhenUp,
+  colorValue,
+}: {
+  label: string;
+  value: number;
+  prev: number;
+  goodWhenUp: boolean;
+  colorValue?: boolean;
+}) {
+  const delta = value - prev;
+  const better = goodWhenUp ? delta >= 0 : delta <= 0;
+  const valueColor = colorValue
+    ? value >= 0
+      ? "text-emerald-700"
+      : "text-destructive"
+    : "";
+  return (
+    <Card>
+      <CardContent>
+        <p className={`text-base font-semibold sm:text-xl ${valueColor}`}>
+          {formatMoney(value)}
+        </p>
+        <p className="text-muted-foreground text-sm">{label}</p>
+        <p
+          className={`mt-0.5 text-[11px] ${
+            delta === 0
+              ? "text-muted-foreground"
+              : better
+                ? "text-emerald-700"
+                : "text-destructive"
+          }`}
+        >
+          {delta === 0
+            ? "как в прошлом мес."
+            : `${delta > 0 ? "↑" : "↓"} ${formatMoney(Math.abs(delta))}`}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MonthlyBars({
+  data,
+}: {
+  data: { label: string; income: number }[];
+}) {
+  const max = Math.max(1, ...data.map((d) => d.income));
+  return (
+    <div className="flex items-end gap-1.5">
+      {data.map((d, i) => {
+        const isCurrent = i === data.length - 1;
+        const pct = (d.income / max) * 100;
+        return (
+          <div
+            key={`${d.label}-${i}`}
+            className="flex flex-1 flex-col items-center gap-1"
+          >
+            <span className="text-muted-foreground text-[10px] tabular-nums">
+              {d.income > 0 ? d.income.toLocaleString("ru-RU") : ""}
+            </span>
+            <div className="flex h-24 w-full items-end">
+              <div
+                className={`w-full rounded-t ${
+                  isCurrent ? "bg-primary" : "bg-foreground/15"
+                }`}
+                style={{
+                  height: d.income > 0 ? `${Math.max(4, pct)}%` : "0%",
+                }}
+              />
+            </div>
+            <span
+              className={`text-[10px] ${
+                isCurrent
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {d.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

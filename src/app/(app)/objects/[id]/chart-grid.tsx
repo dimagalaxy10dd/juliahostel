@@ -127,14 +127,14 @@ export function ChartGrid({
         жильца, чтобы открыть заселение.
       </p>
 
-      <div className="bg-card overflow-x-auto rounded-lg border">
+      <div className="bg-card max-h-[72vh] overflow-auto rounded-lg border">
         <table
-          className="w-full table-fixed border-collapse text-sm"
+          className="w-full table-fixed border-separate border-spacing-0 text-sm"
           style={{ minWidth: `${104 + days.length * 25}px` }}
         >
           <thead>
             <tr>
-              <th className="bg-muted sticky left-0 z-20 w-[104px] border-b border-r px-2 py-2 text-left">
+              <th className="bg-muted sticky left-0 top-0 z-40 w-[104px] border-b border-r px-2 py-2 text-left">
                 Место
               </th>
               {days.map((d) => {
@@ -143,7 +143,7 @@ export function ChartGrid({
                 return (
                   <th
                     key={d}
-                    className={`border-b border-r px-0 py-2 text-center text-xs font-medium ${
+                    className={`sticky top-0 z-30 border-b border-r px-0 py-2 text-center text-xs font-medium ${
                       isToday
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground"
@@ -251,16 +251,10 @@ function ChartRoomRows({
   return (
     <>
       <tr>
-        <td
-          colSpan={days.length + 1}
-          className={`border-b border-t p-0 ${tint ? "" : "bg-muted"}`}
-          style={tint ? { backgroundColor: tint } : undefined}
-        >
+        <td colSpan={days.length + 1} className="bg-muted border-b p-0">
           <div
-            className={`sticky left-0 z-10 w-fit px-2 py-1.5 text-xs font-semibold ${
-              tint ? "text-foreground" : "bg-muted text-muted-foreground"
-            }`}
-            style={tint ? { backgroundColor: tint } : undefined}
+            className="bg-muted text-muted-foreground sticky left-0 z-20 w-fit px-2 py-1.5 text-xs font-semibold"
+            style={tint ? { boxShadow: `inset 3px 0 0 ${tint}` } : undefined}
           >
             {room.buildingName} — {room.roomName}
           </div>
@@ -269,8 +263,8 @@ function ChartRoomRows({
       {room.beds.map((bed) => (
         <tr key={bed.id}>
           <td
-            className="bg-card sticky left-0 z-10 w-[104px] truncate border-b border-r px-2 py-2 text-xs font-medium"
-            style={tint ? { borderLeft: `6px solid ${tint}` } : undefined}
+            className="bg-card sticky left-0 z-20 w-[104px] truncate border-b border-r px-2 py-2 text-xs font-medium"
+            style={tint ? { boxShadow: `inset 3px 0 0 ${tint}` } : undefined}
           >
             {bed.label}
           </td>
