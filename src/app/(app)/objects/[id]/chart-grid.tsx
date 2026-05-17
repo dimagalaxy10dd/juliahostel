@@ -252,9 +252,11 @@ function ChartRoomRows({
       <tr>
         <td
           colSpan={days.length + 1}
-          className="bg-muted text-muted-foreground sticky left-0 border-b border-t px-2 py-1.5 text-xs font-semibold"
+          className="bg-muted border-b border-t p-0"
         >
-          {room.buildingName} — {room.roomName}
+          <div className="bg-muted text-muted-foreground sticky left-0 z-10 w-fit px-2 py-1.5 text-xs font-semibold">
+            {room.buildingName} — {room.roomName}
+          </div>
         </td>
       </tr>
       {room.beds.map((bed) => (
@@ -856,6 +858,7 @@ function CheckoutPanel({
   const defaultDate = today > stay.dateFrom ? today : stay.dateTo;
   const [actualDateTo, setActualDateTo] = useState(defaultDate);
   const [rateType, setRateType] = useState<RateType>(stay.rateType);
+  const [withRefund, setWithRefund] = useState(true);
 
   const actualDays =
     actualDateTo > stay.dateFrom
@@ -912,10 +915,23 @@ function CheckoutPanel({
         </div>
       </div>
       {refund > 0 && (
-        <p className="text-muted-foreground text-xs">
-          Сумма к возврату сохранится. Выдать деньги можно отдельной кнопкой
-          после выселения.
-        </p>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="withRefund"
+            checked={withRefund}
+            onChange={(e) => setWithRefund(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0"
+          />
+          <span>
+            Оформить возврат жильцу — {formatMoney(refund)}.{" "}
+            <span className="text-muted-foreground">
+              {withRefund
+                ? "Сумму можно будет выдать отдельной кнопкой после выселения."
+                : "Возврат оформляться не будет."}
+            </span>
+          </span>
+        </label>
       )}
       {error && <ErrorText>{error}</ErrorText>}
       <div className="flex gap-2">

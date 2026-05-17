@@ -435,6 +435,7 @@ export async function checkoutStay(
   });
   const paidTotal = stay.payments.reduce((n, p) => n + Number(p.amount), 0);
   const refund = paidTotal - owed;
+  const withRefund = str(formData, "withRefund") === "on";
 
   await prisma.stay.update({
     where: { id: stayId },
@@ -442,7 +443,7 @@ export async function checkoutStay(
       dateTo: actualTo,
       status: "ENDED",
       agreedAmount: owed,
-      refundAmount: refund > 0 ? refund : null,
+      refundAmount: withRefund && refund > 0 ? refund : null,
       refundedAt: null,
     },
   });
