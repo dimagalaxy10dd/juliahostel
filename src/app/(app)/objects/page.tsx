@@ -21,7 +21,7 @@ export default async function ObjectsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Объекты</h1>
+        <h1 className="text-2xl font-semibold">Выберите объект</h1>
         <AddDialog
           triggerLabel="+ Добавить объект"
           title="Новый объект"

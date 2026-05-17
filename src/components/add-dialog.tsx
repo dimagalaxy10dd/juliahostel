@@ -28,7 +28,7 @@ export function AddDialog({
   hidden?: Record<string, string>;
   children: React.ReactNode;
   triggerClassName?: string;
-  triggerVariant?: "default" | "outline" | "secondary";
+  triggerVariant?: "default" | "outline" | "secondary" | "ghost";
   submitLabel?: string;
   successMessage?: string;
 }) {
