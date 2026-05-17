@@ -858,7 +858,7 @@ function CheckoutPanel({
   const defaultDate = today > stay.dateFrom ? today : stay.dateTo;
   const [actualDateTo, setActualDateTo] = useState(defaultDate);
   const [rateType, setRateType] = useState<RateType>(stay.rateType);
-  const [withRefund, setWithRefund] = useState(true);
+  const [withRefund, setWithRefund] = useState(false);
 
   const actualDays =
     actualDateTo > stay.dateFrom
@@ -871,6 +871,11 @@ function CheckoutPanel({
     <form action={onSubmit} className="space-y-4">
       <input type="hidden" name="stayId" value={stay.id} />
       <input type="hidden" name="propertyId" value={propertyId} />
+      <input
+        type="hidden"
+        name="withRefund"
+        value={withRefund ? "on" : ""}
+      />
       <p className="text-muted-foreground -mt-1 text-sm">
         Жилец выезжает раньше срока. Укажите фактическую дату выезда — место
         освободится с этого дня.
@@ -887,52 +892,60 @@ function CheckoutPanel({
           className="h-11"
         />
       </div>
-      <RateSelect
-        name="refundRateType"
-        label="Пересчитать по тарифу"
-        value={rateType}
-        onChange={setRateType}
-      />
-      <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
-        <Row label="Дней проживания">{actualDays} дн.</Row>
-        <Row label="Стоимость по тарифу">{formatMoney(owed)}</Row>
-        <Row label="Уже оплачено">{formatMoney(stay.paidTotal)}</Row>
-        <div className="flex justify-between gap-4 border-t pt-1">
-          <dt className="font-medium">
-            {refund >= 0 ? "К возврату жильцу" : "Долг жильца"}
-          </dt>
-          <dd
-            className={`font-semibold ${
-              refund > 0
-                ? "text-emerald-700"
-                : refund < 0
-                  ? "text-destructive"
-                  : ""
-            }`}
-          >
-            {formatMoney(Math.abs(refund))}
-          </dd>
+
+      <div className="space-y-2">
+        <Label className="text-base">
+          Возвращаете деньги за непрожитые дни?
+        </Label>
+        <div className="grid grid-cols-2 gap-2">
+          <ChoiceButton active={!withRefund} onClick={() => setWithRefund(false)}>
+            Без возврата
+          </ChoiceButton>
+          <ChoiceButton active={withRefund} onClick={() => setWithRefund(true)}>
+            Сделать возврат
+          </ChoiceButton>
         </div>
       </div>
-      {refund > 0 && (
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="withRefund"
-            checked={withRefund}
-            onChange={(e) => setWithRefund(e.target.checked)}
-            className="mt-0.5 size-4 shrink-0"
+
+      {withRefund ? (
+        <>
+          <RateSelect
+            name="refundRateType"
+            label="Пересчитать по тарифу"
+            value={rateType}
+            onChange={setRateType}
           />
-          <span>
-            Оформить возврат жильцу — {formatMoney(refund)}.{" "}
-            <span className="text-muted-foreground">
-              {withRefund
-                ? "Сумму можно будет выдать отдельной кнопкой после выселения."
-                : "Возврат оформляться не будет."}
-            </span>
-          </span>
-        </label>
+          <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
+            <Row label="Дней проживания">{actualDays} дн.</Row>
+            <Row label="Стоимость по тарифу">{formatMoney(owed)}</Row>
+            <Row label="Уже оплачено">{formatMoney(stay.paidTotal)}</Row>
+            <div className="flex justify-between gap-4 border-t pt-1">
+              <dt className="font-medium">
+                {refund >= 0 ? "К возврату жильцу" : "Долг жильца"}
+              </dt>
+              <dd
+                className={`font-semibold ${
+                  refund > 0
+                    ? "text-emerald-700"
+                    : refund < 0
+                      ? "text-destructive"
+                      : ""
+                }`}
+              >
+                {formatMoney(Math.abs(refund))}
+              </dd>
+            </div>
+          </div>
+          {refund > 0 && (
+            <p className="text-muted-foreground text-xs">
+              Сумму можно будет выдать отдельной кнопкой после выселения.
+            </p>
+          )}
+        </>
+      ) : (
+        <input type="hidden" name="refundRateType" value="DAILY" />
       )}
+
       {error && <ErrorText>{error}</ErrorText>}
       <div className="flex gap-2">
         <Button
@@ -948,6 +961,30 @@ function CheckoutPanel({
         </Button>
       </div>
     </form>
+  );
+}
+
+function ChoiceButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-11 rounded-lg border text-sm font-medium transition-colors ${
+        active
+          ? "border-foreground bg-foreground text-background"
+          : "bg-background hover:bg-muted"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
