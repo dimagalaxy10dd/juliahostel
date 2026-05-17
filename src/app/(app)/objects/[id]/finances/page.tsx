@@ -172,29 +172,10 @@ export default async function FinancesPage({
               <div>
                 <p className="font-medium">
                   {e.category?.name ?? "Без категории"}
-                  {e.source === "AI" && (
-                    <span className="text-muted-foreground text-xs">
-                      {" "}
-                      · распознано AI
-                    </span>
-                  )}
                 </p>
                 <p className="text-muted-foreground text-sm">
                   {fmtDate(e.spentOn)}
                   {e.note ? ` · ${e.note}` : ""}
-                  {e.photoUrl ? (
-                    <>
-                      {" · "}
-                      <a
-                        href={e.photoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        фото чека
-                      </a>
-                    </>
-                  ) : null}
                 </p>
               </div>
               <div className="flex items-center gap-3">

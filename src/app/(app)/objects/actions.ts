@@ -1,13 +1,9 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import type { ActionResult, ReceiptResult } from "@/lib/types";
+import type { ActionResult } from "@/lib/types";
 import {
   bedSchema,
   buildingSchema,
@@ -552,8 +548,6 @@ export async function createExpense(
       amount: parsed.data.amount,
       spentOn: new Date(parsed.data.spentOn),
       note: parsed.data.note ?? null,
-      photoUrl: str(formData, "photoUrl") || null,
-      source: str(formData, "source") === "AI" ? "AI" : "MANUAL",
     },
   });
   revalidatePath(`/objects/${propertyId}/finances`);
@@ -566,108 +560,4 @@ export async function deleteExpense(formData: FormData): Promise<void> {
   await prisma.expense.delete({ where: { id: str(formData, "id") } });
   revalidatePath(`/objects/${str(formData, "propertyId")}/finances`);
   revalidatePath("/");
-}
-
-// --- AI-анализ фото чека (Claude API) ---
-
-const RECEIPT_MEDIA: Record<string, "image/jpeg" | "image/png" | "image/webp" | "image/gif"> =
-  {
-    "image/jpeg": "image/jpeg",
-    "image/jpg": "image/jpeg",
-    "image/png": "image/png",
-    "image/webp": "image/webp",
-    "image/gif": "image/gif",
-  };
-
-export async function analyzeReceipt(
-  formData: FormData,
-): Promise<ReceiptResult> {
-  await requireAuth();
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return {
-      ok: false,
-      error: "AI не настроен: добавьте ключ ANTHROPIC_API_KEY в файл .env",
-    };
-  }
-
-  const file = formData.get("photo");
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: "Выберите фото чека" };
-  }
-  const mediaType = RECEIPT_MEDIA[file.type];
-  if (!mediaType) {
-    return { ok: false, error: "Поддерживаются только фото: JPG, PNG, WEBP" };
-  }
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-
-  // Сохраняем фото в public/uploads
-  const ext = mediaType === "image/jpeg" ? "jpg" : mediaType.split("/")[1];
-  const fileName = `${randomUUID()}.${ext}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, fileName), bytes);
-  const photoUrl = `/uploads/${fileName}`;
-
-  const categories = (str(formData, "categories") || "")
-    .split("|")
-    .map((c) => c.trim())
-    .filter(Boolean);
-
-  const prompt = `На фото — чек, квитанция или счёт за расходы хостела (коммунальные услуги, покупки, ремонт и т.п.).
-Определи:
-- amount: итоговую сумму к оплате, только число (без валюты);
-- note: краткое описание на русском, 1–4 слова (например «Электроэнергия» или «Вывоз мусора»);
-- category: наиболее подходящую категорию строго из этого списка: ${
-    categories.length ? categories.join(", ") : "(список пуст)"
-  }. Если ничего не подходит или список пуст — верни пустую строку.
-Ответь ТОЛЬКО валидным JSON без пояснений и без markdown: {"amount": число, "note": "строка", "category": "строка"}`;
-
-  try {
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-opus-4-7",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: { type: "base64", media_type: mediaType, data: bytes.toString("base64") },
-            },
-            { type: "text", text: prompt },
-          ],
-        },
-      ],
-    });
-
-    const textBlock = response.content.find((b) => b.type === "text");
-    if (!textBlock || textBlock.type !== "text") {
-      return { ok: false, error: "AI не смог обработать фото" };
-    }
-    const cleaned = textBlock.text
-      .replace(/```json/gi, "")
-      .replace(/```/g, "")
-      .trim();
-    const data = JSON.parse(cleaned) as {
-      amount?: number;
-      note?: string;
-      category?: string;
-    };
-    return {
-      ok: true,
-      amount: Number(data.amount) || 0,
-      note: typeof data.note === "string" ? data.note : "",
-      categoryName: typeof data.category === "string" ? data.category : "",
-      photoUrl,
-    };
-  } catch {
-    return {
-      ok: false,
-      error: "Не удалось распознать чек. Введите данные вручную.",
-    };
-  }
 }
