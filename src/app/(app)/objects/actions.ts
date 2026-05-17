@@ -249,7 +249,7 @@ export async function createStay(
     dateFrom: str(formData, "dateFrom"),
     dateTo: str(formData, "dateTo"),
     rateType: str(formData, "rateType"),
-    amount: str(formData, "amount"),
+    received: str(formData, "received"),
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message };
