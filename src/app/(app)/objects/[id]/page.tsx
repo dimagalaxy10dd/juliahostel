@@ -1,0 +1,147 @@
+import {
+  addDays,
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  startOfMonth,
+} from "date-fns";
+import { ru } from "date-fns/locale";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { PropertyTabs } from "@/components/property-tabs";
+import { prisma } from "@/lib/prisma";
+import type { RateType } from "@/lib/billing";
+import { ChartGrid, type ChartRoom } from "./chart-grid";
+
+function isoDay(d: Date): string {
+  return format(d, "yyyy-MM-dd");
+}
+
+export default async function PropertyChartPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ month?: string }>;
+}) {
+  const { id } = await params;
+  const { month } = await searchParams;
+
+  const property = await prisma.property.findUnique({
+    where: { id },
+    include: {
+      buildings: {
+        orderBy: { sortOrder: "asc" },
+        include: {
+          rooms: {
+            orderBy: { sortOrder: "asc" },
+            include: { beds: { orderBy: { sortOrder: "asc" } } },
+          },
+        },
+      },
+    },
+  });
+  if (!property) notFound();
+
+  const base =
+    month && /^\d{4}-\d{2}$/.test(month)
+      ? new Date(`${month}-01T00:00:00`)
+      : new Date();
+  const monthStart = startOfMonth(base);
+  const monthEnd = endOfMonth(base);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd }).map(
+    isoDay,
+  );
+  const monthLabelRaw = format(monthStart, "LLLL yyyy", { locale: ru });
+  const monthLabel =
+    monthLabelRaw.charAt(0).toUpperCase() + monthLabelRaw.slice(1);
+
+  const rooms: ChartRoom[] = [];
+  for (const b of property.buildings) {
+    for (const r of b.rooms) {
+      rooms.push({
+        id: r.id,
+        buildingName: b.name,
+        roomName: r.name,
+        beds: r.beds.map((bed) => ({
+          id: bed.id,
+          label: bed.label,
+          buildingName: b.name,
+          roomName: r.name,
+          priceDaily: Number(bed.priceDaily),
+          priceWeekly: Number(bed.priceWeekly),
+          priceMonthly: Number(bed.priceMonthly),
+        })),
+      });
+    }
+  }
+  const bedCount = rooms.reduce((n, r) => n + r.beds.length, 0);
+
+  const stayRows = await prisma.stay.findMany({
+    where: {
+      bed: { room: { building: { propertyId: id } } },
+      status: "ACTIVE",
+      dateFrom: { lt: addDays(monthEnd, 2) },
+      dateTo: { gt: addDays(monthStart, -1) },
+    },
+    include: { resident: true, payments: true },
+  });
+  const stays = stayRows.map((s) => ({
+    id: s.id,
+    bedId: s.bedId,
+    residentName: s.resident.fullName,
+    dateFrom: s.dateFrom.toISOString().slice(0, 10),
+    dateTo: s.dateTo.toISOString().slice(0, 10),
+    rateType: s.rateType as RateType,
+    agreedAmount: Number(s.agreedAmount),
+    paidTotal: s.payments.reduce((sum, p) => sum + Number(p.amount), 0),
+  }));
+
+  const residents = await prisma.resident.findMany({
+    where: { propertyId: id },
+    orderBy: { fullName: "asc" },
+  });
+  const residentNames = residents.map((r) => r.fullName);
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <Link
+          href="/objects"
+          className="text-muted-foreground text-sm hover:underline"
+        >
+          ← Все объекты
+        </Link>
+        <h1 className="mt-1 text-2xl font-semibold">{property.name}</h1>
+      </div>
+
+      <PropertyTabs propertyId={id} active="chart" />
+
+      {bedCount === 0 ? (
+        <div className="bg-card rounded-lg border p-6 text-center">
+          <p className="text-muted-foreground">
+            Сначала добавьте помещения, комнаты и места.
+          </p>
+          <Link
+            href={`/objects/${id}/structure`}
+            className="text-primary mt-2 inline-block font-medium hover:underline"
+          >
+            Перейти к структуре →
+          </Link>
+        </div>
+      ) : (
+        <ChartGrid
+          propertyId={id}
+          days={days}
+          rooms={rooms}
+          stays={stays}
+          residentNames={residentNames}
+          monthLabel={monthLabel}
+          prevMonth={format(addMonths(monthStart, -1), "yyyy-MM")}
+          nextMonth={format(addMonths(monthStart, 1), "yyyy-MM")}
+        />
+      )}
+    </div>
+  );
+}
