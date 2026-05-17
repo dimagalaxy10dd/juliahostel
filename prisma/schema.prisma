@@ -37,6 +37,7 @@ model Building {
   id         String   @id @default(cuid())
   name       String
   sortOrder  Int      @default(0)
+  color      String? // цвет помещения для шахматки (hex)
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   rooms      Room[]

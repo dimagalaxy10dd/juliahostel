@@ -12,6 +12,7 @@ export const propertySchema = z.object({
 
 export const buildingSchema = z.object({
   name: z.string().trim().min(1, "Укажите название помещения"),
+  color: z.string().trim().optional(),
 });
 
 export const roomSchema = z.object({

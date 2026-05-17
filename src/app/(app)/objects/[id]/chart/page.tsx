@@ -64,6 +64,7 @@ export default async function PropertyChartPage({
         id: r.id,
         buildingName: b.name,
         roomName: r.name,
+        buildingColor: b.color,
         beds: r.beds.map((bed) => ({
           id: bed.id,
           label: bed.label,

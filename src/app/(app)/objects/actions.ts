@@ -63,16 +63,44 @@ export async function createBuilding(
   formData: FormData,
 ): Promise<ActionResult> {
   await requireAuth();
-  const parsed = buildingSchema.safeParse({ name: str(formData, "name") });
+  const parsed = buildingSchema.safeParse({
+    name: str(formData, "name"),
+    color: str(formData, "color") || undefined,
+  });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
   const propertyId = str(formData, "propertyId");
   const count = await prisma.building.count({ where: { propertyId } });
   await prisma.building.create({
-    data: { name: parsed.data.name, propertyId, sortOrder: count },
+    data: {
+      name: parsed.data.name,
+      color: parsed.data.color ?? null,
+      propertyId,
+      sortOrder: count,
+    },
   });
   revalidatePath(`/objects/${propertyId}`);
+  return { ok: true };
+}
+
+export async function updateBuilding(
+  _prev: ActionResult | undefined,
+  formData: FormData,
+): Promise<ActionResult> {
+  await requireAuth();
+  const parsed = buildingSchema.safeParse({
+    name: str(formData, "name"),
+    color: str(formData, "color") || undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message };
+  }
+  await prisma.building.update({
+    where: { id: str(formData, "id") },
+    data: { name: parsed.data.name, color: parsed.data.color ?? null },
+  });
+  revalidatePath(`/objects/${str(formData, "propertyId")}`);
   return { ok: true };
 }
 

@@ -17,8 +17,70 @@ import {
   deleteExpenseCategory,
   deleteRoom,
   updateBed,
+  updateBuilding,
   updateExpenseCategory,
 } from "../../actions";
+
+// Палитра цветов помещений (мягкие пастельные тона)
+const BUILDING_COLORS = [
+  "#FFD8DD",
+  "#FFE6C7",
+  "#FFF4C2",
+  "#D4F0D2",
+  "#C9EBF0",
+  "#D7DEFF",
+  "#EAD5F7",
+  "#E0E0E0",
+];
+
+function BuildingFields({ building }: { building?: { name: string; color: string | null } }) {
+  return (
+    <>
+      <div className="space-y-2">
+        <Label className="text-base">Название</Label>
+        <Input
+          name="name"
+          required
+          defaultValue={building?.name}
+          placeholder="Например: Этаж 1 или Летний домик"
+          className="h-11 text-base"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="text-base">Цвет в шахматке</Label>
+        <div className="flex flex-wrap gap-2">
+          <label className="cursor-pointer">
+            <input
+              type="radio"
+              name="color"
+              value=""
+              defaultChecked={!building?.color}
+              className="peer sr-only"
+            />
+            <span className="border-input bg-background text-muted-foreground peer-checked:ring-foreground flex size-9 items-center justify-center rounded-full border text-xs peer-checked:ring-2 peer-checked:ring-offset-2">
+              нет
+            </span>
+          </label>
+          {BUILDING_COLORS.map((c) => (
+            <label key={c} className="cursor-pointer">
+              <input
+                type="radio"
+                name="color"
+                value={c}
+                defaultChecked={building?.color === c}
+                className="peer sr-only"
+              />
+              <span
+                className="peer-checked:ring-foreground block size-9 rounded-full border peer-checked:ring-2 peer-checked:ring-offset-2"
+                style={{ backgroundColor: c }}
+              />
+            </label>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
 
 type BedDefaults = {
   label: string;
@@ -167,15 +229,7 @@ export default async function StructurePage({
         hidden={{ propertyId: property.id }}
         successMessage="Помещение добавлено"
       >
-        <div className="space-y-2">
-          <Label className="text-base">Название</Label>
-          <Input
-            name="name"
-            required
-            placeholder="Например: Этаж 1 или Летний домик"
-            className="h-11 text-base"
-          />
-        </div>
+        <BuildingFields />
       </AddDialog>
 
       {property.buildings.length === 0 && (
@@ -191,8 +245,26 @@ export default async function StructurePage({
             className="rounded-lg border bg-card p-4"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-lg font-semibold">{building.name}</h2>
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <span
+                  className="inline-block size-4 rounded-full border"
+                  style={{ backgroundColor: building.color ?? "#f7f7f7" }}
+                />
+                {building.name}
+              </h2>
               <div className="flex items-center gap-2">
+                <AddDialog
+                  triggerLabel="Изменить"
+                  triggerVariant="outline"
+                  title={`Помещение — ${building.name}`}
+                  action={updateBuilding}
+                  hidden={{ id: building.id, propertyId: property.id }}
+                  successMessage="Помещение обновлено"
+                >
+                  <BuildingFields
+                    building={{ name: building.name, color: building.color }}
+                  />
+                </AddDialog>
                 <AddDialog
                   triggerLabel="+ Комната"
                   triggerVariant="outline"

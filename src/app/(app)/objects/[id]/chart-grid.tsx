@@ -52,6 +52,7 @@ export type ChartRoom = {
   id: string;
   buildingName: string;
   roomName: string;
+  buildingColor: string | null;
   beds: ChartBed[];
 };
 
@@ -246,21 +247,31 @@ function ChartRoomRows({
   onCreate: (bed: ChartBed, date: string) => void;
   onView: (bed: ChartBed, stay: ChartStay) => void;
 }) {
+  const tint = room.buildingColor;
   return (
     <>
       <tr>
         <td
           colSpan={days.length + 1}
-          className="bg-muted border-b border-t p-0"
+          className={`border-b border-t p-0 ${tint ? "" : "bg-muted"}`}
+          style={tint ? { backgroundColor: tint } : undefined}
         >
-          <div className="bg-muted text-muted-foreground sticky left-0 z-10 w-fit px-2 py-1.5 text-xs font-semibold">
+          <div
+            className={`sticky left-0 z-10 w-fit px-2 py-1.5 text-xs font-semibold ${
+              tint ? "text-foreground" : "bg-muted text-muted-foreground"
+            }`}
+            style={tint ? { backgroundColor: tint } : undefined}
+          >
             {room.buildingName} — {room.roomName}
           </div>
         </td>
       </tr>
       {room.beds.map((bed) => (
         <tr key={bed.id}>
-          <td className="bg-card sticky left-0 z-10 w-[104px] truncate border-b border-r px-2 py-2 text-xs font-medium">
+          <td
+            className="bg-card sticky left-0 z-10 w-[104px] truncate border-b border-r px-2 py-2 text-xs font-medium"
+            style={tint ? { borderLeft: `6px solid ${tint}` } : undefined}
+          >
             {bed.label}
           </td>
           {buildRow(bed.id, days, stays).map((seg) => {
