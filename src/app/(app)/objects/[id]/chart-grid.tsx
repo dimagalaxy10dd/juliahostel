@@ -355,7 +355,7 @@ function CheckInDialog({
   const [residentName, setResidentName] = useState("");
   const [from, setFrom] = useState(date);
   const [to, setTo] = useState("");
-  const [rateType, setRateType] = useState<RateType>("DAILY");
+  const [rateType, setRateType] = useState<RateType>("MONTHLY");
   const [received, setReceived] = useState("0");
   const [receivedEdited, setReceivedEdited] = useState(false);
   const [needsInvoice, setNeedsInvoice] = useState(false);
@@ -427,7 +427,7 @@ function CheckInDialog({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
-            <Label className="text-base">Заезд</Label>
+            <Label className="text-base">От</Label>
             <DateField name="dateFrom" value={from} onChange={setFrom} required />
           </div>
           <div className="space-y-2">
