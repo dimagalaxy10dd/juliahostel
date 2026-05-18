@@ -104,7 +104,7 @@ export default async function FinancesPage({
 
       <PropertyTabs propertyId={id} active="finances" />
 
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-start gap-3">
         <Link
           href={`?month=${prevMonth}`}
           className="bg-card hover:bg-muted rounded-lg border px-3 py-2 text-lg"

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { DateField } from "@/components/date-field";
 import { Modal } from "@/components/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -117,13 +118,11 @@ export function AddExpenseDialog({
             </div>
             <div className="space-y-2">
               <Label className="text-base">Дата</Label>
-              <Input
-                type="date"
+              <DateField
                 name="spentOn"
                 value={spentOn}
-                onChange={(e) => setSpentOn(e.target.value)}
+                onChange={setSpentOn}
                 required
-                className="h-11"
               />
             </div>
           </div>

@@ -4,6 +4,7 @@ import { addDays, format } from "date-fns";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { DateField } from "@/components/date-field";
 import { Modal } from "@/components/modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,7 +99,7 @@ export function ChartGrid({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-start gap-3">
         <Link
           href={`?month=${prevMonth}`}
           className="bg-card hover:bg-muted rounded-lg border px-3 py-2 text-lg"
@@ -415,25 +416,16 @@ function CheckInDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label className="text-base">Заезд</Label>
-            <Input
-              type="date"
-              name="dateFrom"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              required
-              className="h-11"
-            />
+            <DateField name="dateFrom" value={from} onChange={setFrom} required />
           </div>
           <div className="space-y-2">
             <Label className="text-base">Выезд</Label>
-            <Input
-              type="date"
+            <DateField
               name="dateTo"
               value={to}
               min={from || undefined}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={setTo}
               required
-              className="h-11"
             />
           </div>
         </div>
@@ -796,14 +788,12 @@ function ExtendPanel({
       </p>
       <div className="space-y-2">
         <Label className="text-base">Новая дата выезда</Label>
-        <Input
-          type="date"
+        <DateField
           name="newDateTo"
           value={newDateTo}
           min={stay.dateTo}
-          onChange={(e) => setNewDateTo(e.target.value)}
+          onChange={setNewDateTo}
           required
-          className="h-11"
         />
       </div>
       <RateSelect name="rateType" value={rateType} onChange={setRateType} />
@@ -884,14 +874,12 @@ function CheckoutPanel({
       </p>
       <div className="space-y-2">
         <Label className="text-base">Фактическая дата выезда</Label>
-        <Input
-          type="date"
+        <DateField
           name="actualDateTo"
           value={actualDateTo}
           min={addDaysIso(stay.dateFrom, 1)}
-          onChange={(e) => setActualDateTo(e.target.value)}
+          onChange={setActualDateTo}
           required
-          className="h-11"
         />
       </div>
 
