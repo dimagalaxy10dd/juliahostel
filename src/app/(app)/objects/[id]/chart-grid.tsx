@@ -342,7 +342,7 @@ function StayCell({
     <td
       colSpan={span}
       onClick={onClick}
-      title={`${stay.residentName} · ${fmtDate(stay.dateFrom)}–${fmtDate(addDaysIso(stay.dateTo, -1))}`}
+      title={`${stay.residentName} · ${fmtDate(stay.dateFrom)}–${fmtDate(stay.dateTo)}`}
       className="h-9 cursor-pointer overflow-hidden border-b border-r"
       style={{
         background: `linear-gradient(90deg, ${CLR_PAID} 0 ${pct}%, ${restColor} ${pct}% 100%)`,
@@ -379,19 +379,12 @@ function CheckInDialog({
   const [error, setError] = useState<string | undefined>();
   const [pending, setPending] = useState(false);
 
-  // «to» — последний день проживания (включительно), поэтому +1 к дням.
-  const days =
-    from && to && to >= from
-      ? stayDays(new Date(from), new Date(to)) + 1
-      : 0;
+  // «to» — день выезда (не оплачивается). Количество ночей = to − from.
+  const nights =
+    from && to && to > from ? stayDays(new Date(from), new Date(to)) : 0;
   const suggested =
-    days > 0
-      ? suggestAmount(
-          rateType,
-          new Date(from),
-          new Date(addDaysIso(to, 1)),
-          bed,
-        )
+    nights > 0
+      ? suggestAmount(rateType, new Date(from), new Date(to), bed)
       : 0;
 
   useEffect(() => {
@@ -459,7 +452,7 @@ function CheckInDialog({
         </div>
         <RateSelect name="rateType" value={rateType} onChange={setRateType} />
         <SuggestBox
-          label={`К оплате по тарифу${days > 0 ? ` (за ${days} дн.)` : ""}`}
+          label={`К оплате по тарифу${nights > 0 ? ` (за ${nights} ноч.)` : ""}`}
           value={suggested}
         />
         <AmountField
@@ -526,7 +519,7 @@ function StayDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  const days = stayDays(new Date(stay.dateFrom), new Date(stay.dateTo));
+  const nights = stayDays(new Date(stay.dateFrom), new Date(stay.dateTo));
   const balance = stay.agreedAmount - stay.paidTotal;
   const ended = stay.status === "ENDED";
 
@@ -575,8 +568,8 @@ function StayDialog({
               {bed.buildingName} · {bed.roomName} · {bed.label}
             </Row>
             <Row label="Период">
-              {fmtDate(stay.dateFrom)} — {fmtDate(addDaysIso(stay.dateTo, -1))}{" "}
-              ({days} дн.)
+              {fmtDate(stay.dateFrom)} — {fmtDate(stay.dateTo)}{" "}
+              ({nights} ноч.)
             </Row>
             <Row label="Тариф">{RATE_LABELS[stay.rateType]}</Row>
             {ended && <Row label="Статус">Выехал</Row>}
@@ -795,24 +788,20 @@ function ExtendPanel({
   onBack: () => void;
   onSubmit: (fd: FormData) => void;
 }) {
-  const currentDo = addDaysIso(stay.dateTo, -1);
+  // «до» — день выезда. Продление начинается с текущего дня выезда.
+  const currentDo = stay.dateTo;
   const [newDateTo, setNewDateTo] = useState(currentDo);
   const [rateType, setRateType] = useState<RateType>(stay.rateType);
   const [received, setReceived] = useState("0");
   const [receivedEdited, setReceivedEdited] = useState(false);
 
-  const extDays =
+  const extNights =
     newDateTo > currentDo
       ? stayDays(new Date(currentDo), new Date(newDateTo))
       : 0;
   const suggested =
-    extDays > 0
-      ? suggestAmount(
-          rateType,
-          new Date(stay.dateTo),
-          new Date(addDaysIso(newDateTo, 1)),
-          bed,
-        )
+    extNights > 0
+      ? suggestAmount(rateType, new Date(stay.dateTo), new Date(newDateTo), bed)
       : 0;
 
   useEffect(() => {
@@ -824,10 +813,11 @@ function ExtendPanel({
       <input type="hidden" name="stayId" value={stay.id} />
       <input type="hidden" name="propertyId" value={propertyId} />
       <p className="text-muted-foreground -mt-1 text-sm">
-        Сейчас проживает до: {fmtDate(currentDo)}
+        Текущая дата выезда: {fmtDate(currentDo)}. Продление считается
+        отдельно — со своей суммой к оплате.
       </p>
       <div className="space-y-2">
-        <Label className="text-base">Новая дата «до»</Label>
+        <Label className="text-base">Новая дата выезда</Label>
         <DateField
           name="newDateTo"
           value={newDateTo}
@@ -838,7 +828,7 @@ function ExtendPanel({
       </div>
       <RateSelect name="rateType" value={rateType} onChange={setRateType} />
       <SuggestBox
-        label={`К доплате по тарифу${extDays > 0 ? ` (за ${extDays} дн.)` : ""}`}
+        label={`К оплате по тарифу${extNights > 0 ? ` (за ${extNights} ноч.)` : ""}`}
         value={suggested}
       />
       <AmountField
@@ -892,17 +882,17 @@ function CheckoutPanel({
   const [rateType, setRateType] = useState<RateType>(stay.rateType);
   const [withRefund, setWithRefund] = useState(false);
 
-  // actualDateTo — последний день проживания (включительно).
-  const actualDays =
-    actualDateTo >= stay.dateFrom
-      ? stayDays(new Date(stay.dateFrom), new Date(actualDateTo)) + 1
+  // actualDateTo — фактический день выезда (не оплачивается).
+  const actualNights =
+    actualDateTo > stay.dateFrom
+      ? stayDays(new Date(stay.dateFrom), new Date(actualDateTo))
       : 0;
   const recomputed =
-    actualDays > 0
+    actualNights > 0
       ? suggestAmount(
           rateType,
           new Date(stay.dateFrom),
-          new Date(addDaysIso(actualDateTo, 1)),
+          new Date(actualDateTo),
           bed,
         )
       : 0;
@@ -920,11 +910,11 @@ function CheckoutPanel({
         value={withRefund ? "on" : ""}
       />
       <p className="text-muted-foreground -mt-1 text-sm">
-        Жилец выезжает раньше срока. Укажите последний день проживания — место
-        освободится со следующего дня.
+        Жилец выезжает раньше срока. Укажите день выезда — за этот день оплата
+        не берётся, место с него свободно.
       </p>
       <div className="space-y-2">
-        <Label className="text-base">Фактически проживал до</Label>
+        <Label className="text-base">Фактическая дата выезда</Label>
         <DateField
           name="actualDateTo"
           value={actualDateTo}
@@ -957,7 +947,7 @@ function CheckoutPanel({
             onChange={setRateType}
           />
           <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
-            <Row label="Дней проживания">{actualDays} дн.</Row>
+            <Row label="Ночей проживания">{actualNights} ноч.</Row>
             <Row label="Стоимость проживания">{formatMoney(owed)}</Row>
             <Row label="Уже оплачено">{formatMoney(stay.paidTotal)}</Row>
             <div className="flex justify-between gap-4 border-t pt-1">

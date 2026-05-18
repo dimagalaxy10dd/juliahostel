@@ -48,7 +48,6 @@ type WarnItem = {
   residentName: string;
   place: string;
   dateTo: string;
-  lastDay: string;
   balance: number;
 };
 
@@ -115,7 +114,6 @@ export default async function PropertyDashboardPage({
       place: `${b.name} · ${s.bed.room.name} · ${s.bed.label}`,
       dateFrom: isoDay(s.dateFrom),
       dateTo: isoDay(s.dateTo),
-      lastDay: isoDay(new Date(s.dateTo.getTime() - 86400000)),
       balance: Number(s.agreedAmount) - paid,
     };
   });
@@ -275,14 +273,14 @@ export default async function PropertyDashboardPage({
               tone="overdue"
               propertyId={id}
               items={overdue}
-              render={(i) => `проживание было до ${fmtDate(i.lastDay)}`}
+              render={(i) => `дата выезда была ${fmtDate(i.dateTo)}`}
             />
             <WarnSection
               title="Скоро заканчивается срок"
               tone="soon"
               propertyId={id}
               items={endingSoon}
-              render={(i) => `срок до ${fmtDate(i.lastDay)}`}
+              render={(i) => `выезд ${fmtDate(i.dateTo)}`}
             />
             <WarnSection
               title="Не оплачено"

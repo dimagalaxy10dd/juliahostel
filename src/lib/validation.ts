@@ -52,8 +52,8 @@ export const staySchema = z
     rateType: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
     received: z.coerce.number().min(0, "Сумма не может быть меньше 0"),
   })
-  .refine((v) => v.dateTo >= v.dateFrom, {
-    message: "Дата «до» не может быть раньше даты заезда",
+  .refine((v) => v.dateTo > v.dateFrom, {
+    message: "Дата выезда должна быть позже даты заезда — минимум одна ночь",
     path: ["dateTo"],
   });
 

@@ -1,6 +1,5 @@
 "use server";
 
-import { addDays } from "date-fns";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -290,9 +289,9 @@ export async function createStay(
   const propertyId = str(formData, "propertyId");
   const { bedId, residentName, rateType, received } = parsed.data;
   const from = new Date(parsed.data.dateFrom);
-  // В форме дата «до» — последний день проживания (включительно).
-  // В базе dateTo хранится как день после выезда, поэтому +1 день.
-  const to = addDays(new Date(parsed.data.dateTo), 1);
+  // Дата «до» — день выезда: за этот день оплата не берётся, место с него
+  // свободно. Считаем ночи: to − from.
+  const to = new Date(parsed.data.dateTo);
 
   const overlap = await prisma.stay.findFirst({
     where: { bedId, dateFrom: { lt: to }, dateTo: { gt: from } },
@@ -391,8 +390,8 @@ export async function extendStay(
   });
   if (!stay) return { ok: false, error: "Заселение не найдено" };
 
-  // newDateTo из формы — новый последний день (включительно), в базе +1.
-  const newTo = addDays(new Date(parsed.data.newDateTo), 1);
+  // newDateTo из формы — новый день выезда.
+  const newTo = new Date(parsed.data.newDateTo);
   if (newTo <= stay.dateTo) {
     return {
       ok: false,
@@ -400,12 +399,13 @@ export async function extendStay(
     };
   }
 
+  // Продление занимает период [stay.dateTo, newTo) — проверяем, что место
+  // в эти даты не занято другим заселением.
   const overlap = await prisma.stay.findFirst({
     where: {
       bedId: stay.bedId,
-      id: { not: stayId },
       dateFrom: { lt: newTo },
-      dateTo: { gt: stay.dateFrom },
+      dateTo: { gt: stay.dateTo },
     },
   });
   if (overlap) {
@@ -418,18 +418,27 @@ export async function extendStay(
     priceMonthly: Number(stay.bed.priceMonthly),
   });
 
+  // Продление — отдельный сегмент: новое заселение того же жильца со своей
+  // суммой к оплате и своей оплатой. Исходное заселение закрываем, чтобы оно
+  // не висело как «срок истёк» и считалось отдельно в календаре.
+  const ext = await prisma.stay.create({
+    data: {
+      bedId: stay.bedId,
+      residentId: stay.residentId,
+      dateFrom: stay.dateTo,
+      dateTo: newTo,
+      rateType: parsed.data.rateType,
+      agreedAmount: extCost,
+      status: "ACTIVE",
+    },
+  });
   await prisma.stay.update({
     where: { id: stayId },
-    data: {
-      dateTo: newTo,
-      status: "ACTIVE",
-      rateType: parsed.data.rateType,
-      agreedAmount: { increment: extCost },
-    },
+    data: { status: "ENDED" },
   });
   if (parsed.data.received > 0) {
     await prisma.payment.create({
-      data: { stayId, amount: parsed.data.received, note: "Продление" },
+      data: { stayId: ext.id, amount: parsed.data.received, note: "Продление" },
     });
   }
   revalidatePath(`/objects/${propertyId}`);
@@ -459,8 +468,8 @@ export async function checkoutStay(
   });
   if (!stay) return { ok: false, error: "Заселение не найдено" };
 
-  // actualDateTo из формы — последний день проживания (включительно), +1.
-  const actualTo = addDays(new Date(parsed.data.actualDateTo), 1);
+  // actualDateTo из формы — фактический день выезда.
+  const actualTo = new Date(parsed.data.actualDateTo);
   if (actualTo <= stay.dateFrom) {
     return { ok: false, error: "Дата выезда должна быть позже даты заезда" };
   }

@@ -8,7 +8,7 @@ export const RATE_LABELS: Record<RateType, string> = {
   MONTHLY: "Помесячно",
 };
 
-// Количество дней проживания. dateTo — день выезда (не включается).
+// Количество ночей проживания. dateTo — день выезда (не оплачивается).
 export function stayDays(from: Date, to: Date): number {
   return Math.max(0, differenceInCalendarDays(to, from));
 }
@@ -64,17 +64,18 @@ function monthlyCost(from: Date, toExcl: Date, priceMonthly: number): number {
 }
 
 // Рекомендуемая сумма к оплате за период [from, toExcl) по тарифу.
+// Тариф «посуточно» — цена за одну ночь, поэтому считаем ночи.
 export function suggestAmount(
   rateType: RateType,
   from: Date,
   toExcl: Date,
   prices: Prices,
 ): number {
-  const days = stayDays(from, toExcl);
-  if (days <= 0) return 0;
-  if (rateType === "DAILY") return Math.round(days * prices.priceDaily);
+  const nights = stayDays(from, toExcl);
+  if (nights <= 0) return 0;
+  if (rateType === "DAILY") return Math.round(nights * prices.priceDaily);
   if (rateType === "WEEKLY") {
-    return Math.round((days / 7) * prices.priceWeekly);
+    return Math.round((nights / 7) * prices.priceWeekly);
   }
   return Math.round(monthlyCost(from, toExcl, prices.priceMonthly));
 }
