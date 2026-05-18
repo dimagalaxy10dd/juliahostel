@@ -91,16 +91,6 @@ export default async function FinancesPage({
 
   return (
     <div className="space-y-5">
-      <div>
-        <Link
-          href="/objects"
-          className="text-muted-foreground text-sm hover:underline"
-        >
-          ← Все объекты
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{property.name}</h1>
-      </div>
-
       <div className="flex items-center justify-start gap-3">
         <Link
           href={`?month=${prevMonth}`}

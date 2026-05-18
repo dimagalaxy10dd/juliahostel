@@ -24,7 +24,7 @@ export function PropertyTabs() {
   const rest = match[2];
 
   return (
-    <nav className="mt-3 flex flex-wrap gap-1.5">
+    <nav className="order-3 flex w-full flex-wrap gap-1.5 sm:order-2 sm:w-auto sm:flex-1">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         const active = rest === tab.path;

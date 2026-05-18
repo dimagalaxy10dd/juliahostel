@@ -20,19 +20,22 @@ export default async function AppLayout({
     <div className="flex flex-1 flex-col">
       <AutoRefresh />
       <header className="bg-card border-b">
-        <div className="mx-auto max-w-5xl px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <Link href="/objects" className="flex items-center">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logo.png" alt="Julia" className="h-7 w-auto sm:h-8" />
-            </Link>
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+          <Link
+            href="/objects"
+            className="order-1 flex shrink-0 items-center"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="Julia" className="h-7 w-auto sm:h-8" />
+          </Link>
+          <PropertyTabs />
+          <div className="order-2 ml-auto sm:order-3 sm:ml-0">
             <ObjectSwitcher
               properties={properties}
               userName={session?.user?.name ?? ""}
               userEmail={session?.user?.email ?? ""}
             />
           </div>
-          <PropertyTabs />
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">

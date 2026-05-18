@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AddDialog } from "@/components/add-dialog";
 import { DeleteForm } from "@/components/delete-form";
@@ -205,16 +204,6 @@ export default async function StructurePage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href="/objects"
-          className="text-muted-foreground text-sm hover:underline"
-        >
-          ← Все объекты
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{property.name}</h1>
-      </div>
-
       <p className="text-muted-foreground">
         Настройки объекта: помещения, комнаты, места и цены.
       </p>
