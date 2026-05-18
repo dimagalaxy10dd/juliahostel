@@ -128,7 +128,7 @@ export function ChartGrid({
         жильца, чтобы открыть заселение.
       </p>
 
-      <div className="bg-card max-h-[72vh] overflow-auto overscroll-x-none rounded-lg border">
+      <div className="bg-card max-h-[72vh] overflow-auto overscroll-none rounded-lg border">
         <table
           className="w-full table-fixed border-separate border-spacing-0 text-sm"
           style={{ minWidth: `${104 + days.length * 25}px` }}
