@@ -326,7 +326,7 @@ function StayCell({
     <td
       colSpan={span}
       onClick={onClick}
-      title={`${stay.residentName} · ${fmtDate(stay.dateFrom)}–${fmtDate(stay.dateTo)}`}
+      title={`${stay.residentName} · ${fmtDate(stay.dateFrom)}–${fmtDate(addDaysIso(stay.dateTo, -1))}`}
       className="h-9 cursor-pointer overflow-hidden border-b border-r"
       style={{
         background: `linear-gradient(90deg, ${CLR_PAID} 0 ${pct}%, ${restColor} ${pct}% 100%)`,
@@ -363,7 +363,11 @@ function CheckInDialog({
   const [error, setError] = useState<string | undefined>();
   const [pending, setPending] = useState(false);
 
-  const days = from && to && to > from ? stayDays(new Date(from), new Date(to)) : 0;
+  // «to» — последний день проживания (включительно), поэтому +1 к дням.
+  const days =
+    from && to && to >= from
+      ? stayDays(new Date(from), new Date(to)) + 1
+      : 0;
   const suggested = suggestAmount(rateType, days, bed);
 
   useEffect(() => {
@@ -419,7 +423,7 @@ function CheckInDialog({
             <DateField name="dateFrom" value={from} onChange={setFrom} required />
           </div>
           <div className="space-y-2">
-            <Label className="text-base">Выезд</Label>
+            <Label className="text-base">До</Label>
             <DateField
               name="dateTo"
               value={to}
@@ -545,7 +549,8 @@ function StayDialog({
               {bed.buildingName} · {bed.roomName} · {bed.label}
             </Row>
             <Row label="Период">
-              {fmtDate(stay.dateFrom)} — {fmtDate(stay.dateTo)} ({days} дн.)
+              {fmtDate(stay.dateFrom)} — {fmtDate(addDaysIso(stay.dateTo, -1))}{" "}
+              ({days} дн.)
             </Row>
             <Row label="Тариф">{RATE_LABELS[stay.rateType]}</Row>
             {ended && <Row label="Статус">Выехал</Row>}
@@ -764,14 +769,15 @@ function ExtendPanel({
   onBack: () => void;
   onSubmit: (fd: FormData) => void;
 }) {
-  const [newDateTo, setNewDateTo] = useState(stay.dateTo);
+  const currentDo = addDaysIso(stay.dateTo, -1);
+  const [newDateTo, setNewDateTo] = useState(currentDo);
   const [rateType, setRateType] = useState<RateType>(stay.rateType);
   const [received, setReceived] = useState("0");
   const [receivedEdited, setReceivedEdited] = useState(false);
 
   const extDays =
-    newDateTo > stay.dateTo
-      ? stayDays(new Date(stay.dateTo), new Date(newDateTo))
+    newDateTo > currentDo
+      ? stayDays(new Date(currentDo), new Date(newDateTo))
       : 0;
   const suggested = suggestAmount(rateType, extDays, bed);
 
@@ -784,10 +790,10 @@ function ExtendPanel({
       <input type="hidden" name="stayId" value={stay.id} />
       <input type="hidden" name="propertyId" value={propertyId} />
       <p className="text-muted-foreground -mt-1 text-sm">
-        Текущая дата выезда: {fmtDate(stay.dateTo)}
+        Сейчас проживает до: {fmtDate(currentDo)}
       </p>
       <div className="space-y-2">
-        <Label className="text-base">Новая дата выезда</Label>
+        <Label className="text-base">Новая дата «до»</Label>
         <DateField
           name="newDateTo"
           value={newDateTo}
@@ -847,14 +853,15 @@ function CheckoutPanel({
   onBack: () => void;
   onSubmit: (fd: FormData) => void;
 }) {
-  const defaultDate = today > stay.dateFrom ? today : stay.dateTo;
+  const defaultDate = today >= stay.dateFrom ? today : stay.dateFrom;
   const [actualDateTo, setActualDateTo] = useState(defaultDate);
   const [rateType, setRateType] = useState<RateType>(stay.rateType);
   const [withRefund, setWithRefund] = useState(false);
 
+  // actualDateTo — последний день проживания (включительно).
   const actualDays =
-    actualDateTo > stay.dateFrom
-      ? stayDays(new Date(stay.dateFrom), new Date(actualDateTo))
+    actualDateTo >= stay.dateFrom
+      ? stayDays(new Date(stay.dateFrom), new Date(actualDateTo)) + 1
       : 0;
   const owed = suggestAmount(rateType, actualDays, bed);
   const refund = stay.paidTotal - owed;
@@ -869,15 +876,15 @@ function CheckoutPanel({
         value={withRefund ? "on" : ""}
       />
       <p className="text-muted-foreground -mt-1 text-sm">
-        Жилец выезжает раньше срока. Укажите фактическую дату выезда — место
-        освободится с этого дня.
+        Жилец выезжает раньше срока. Укажите последний день проживания — место
+        освободится со следующего дня.
       </p>
       <div className="space-y-2">
-        <Label className="text-base">Фактическая дата выезда</Label>
+        <Label className="text-base">Фактически проживал до</Label>
         <DateField
           name="actualDateTo"
           value={actualDateTo}
-          min={addDaysIso(stay.dateFrom, 1)}
+          min={stay.dateFrom}
           onChange={setActualDateTo}
           required
         />
