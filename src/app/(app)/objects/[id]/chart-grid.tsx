@@ -368,7 +368,15 @@ function CheckInDialog({
     from && to && to >= from
       ? stayDays(new Date(from), new Date(to)) + 1
       : 0;
-  const suggested = suggestAmount(rateType, days, bed);
+  const suggested =
+    days > 0
+      ? suggestAmount(
+          rateType,
+          new Date(from),
+          new Date(addDaysIso(to, 1)),
+          bed,
+        )
+      : 0;
 
   useEffect(() => {
     if (!receivedEdited) setReceived(String(suggested));
@@ -779,7 +787,15 @@ function ExtendPanel({
     newDateTo > currentDo
       ? stayDays(new Date(currentDo), new Date(newDateTo))
       : 0;
-  const suggested = suggestAmount(rateType, extDays, bed);
+  const suggested =
+    extDays > 0
+      ? suggestAmount(
+          rateType,
+          new Date(stay.dateTo),
+          new Date(addDaysIso(newDateTo, 1)),
+          bed,
+        )
+      : 0;
 
   useEffect(() => {
     if (!receivedEdited) setReceived(String(suggested));
@@ -863,7 +879,15 @@ function CheckoutPanel({
     actualDateTo >= stay.dateFrom
       ? stayDays(new Date(stay.dateFrom), new Date(actualDateTo)) + 1
       : 0;
-  const owed = suggestAmount(rateType, actualDays, bed);
+  const owed =
+    actualDays > 0
+      ? suggestAmount(
+          rateType,
+          new Date(stay.dateFrom),
+          new Date(addDaysIso(actualDateTo, 1)),
+          bed,
+        )
+      : 0;
   const refund = stay.paidTotal - owed;
 
   return (

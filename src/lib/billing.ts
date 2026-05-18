@@ -19,18 +19,64 @@ type Prices = {
   priceMonthly: number;
 };
 
-// Рекомендуемая сумма к оплате — пропорционально дням по выбранному тарифу.
+function isLastDayOfMonth(d: Date): boolean {
+  const next = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1),
+  );
+  return next.getUTCMonth() !== d.getUTCMonth();
+}
+
+// Дата, до которой длится один «месяц аренды», начатый датой d (аналог
+// dateTo — следующий день после последнего дня месяца проживания).
+// Месяц = до того же числа следующего месяца. Если d — последний день
+// месяца, месяц аренды покрывает весь следующий календарный месяц.
+function rentMonthEnd(d: Date): Date {
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth();
+  if (isLastDayOfMonth(d)) {
+    return new Date(Date.UTC(y, m + 2, 1));
+  }
+  return new Date(Date.UTC(y, m + 1, d.getUTCDate()));
+}
+
+// Стоимость по месячному тарифу для диапазона [from, toExcl): каждый
+// полный месяц аренды стоит ровно priceMonthly (независимо от того,
+// 28, 30 или 31 день в месяце), неполный остаток — пропорционально.
+function monthlyCost(from: Date, toExcl: Date, priceMonthly: number): number {
+  let cursor = from;
+  let months = 0;
+  for (let guard = 0; guard < 600; guard += 1) {
+    const next = rentMonthEnd(cursor);
+    if (next.getTime() <= toExcl.getTime()) {
+      months += 1;
+      cursor = next;
+    } else {
+      break;
+    }
+  }
+  let raw = months * priceMonthly;
+  const leftover = stayDays(cursor, toExcl);
+  if (leftover > 0) {
+    const monthLen = stayDays(cursor, rentMonthEnd(cursor));
+    raw += (leftover / monthLen) * priceMonthly;
+  }
+  return raw;
+}
+
+// Рекомендуемая сумма к оплате за период [from, toExcl) по тарифу.
 export function suggestAmount(
   rateType: RateType,
-  days: number,
+  from: Date,
+  toExcl: Date,
   prices: Prices,
 ): number {
+  const days = stayDays(from, toExcl);
   if (days <= 0) return 0;
-  let raw = 0;
-  if (rateType === "DAILY") raw = days * prices.priceDaily;
-  else if (rateType === "WEEKLY") raw = (days / 7) * prices.priceWeekly;
-  else if (rateType === "MONTHLY") raw = (days / 30) * prices.priceMonthly;
-  return Math.round(raw);
+  if (rateType === "DAILY") return Math.round(days * prices.priceDaily);
+  if (rateType === "WEEKLY") {
+    return Math.round((days / 7) * prices.priceWeekly);
+  }
+  return Math.round(monthlyCost(from, toExcl, prices.priceMonthly));
 }
 
 // Состояние проживания для подсветки и предупреждений.

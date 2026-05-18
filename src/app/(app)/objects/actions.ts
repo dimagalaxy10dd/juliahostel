@@ -18,7 +18,7 @@ import {
   roomSchema,
   staySchema,
 } from "@/lib/validation";
-import { stayDays, suggestAmount } from "@/lib/billing";
+import { suggestAmount } from "@/lib/billing";
 
 async function requireAuth() {
   const session = await auth();
@@ -306,7 +306,7 @@ export async function createStay(
 
   const bed = await prisma.bed.findUnique({ where: { id: bedId } });
   if (!bed) return { ok: false, error: "Место не найдено" };
-  const agreedAmount = suggestAmount(rateType, stayDays(from, to), {
+  const agreedAmount = suggestAmount(rateType, from, to, {
     priceDaily: Number(bed.priceDaily),
     priceWeekly: Number(bed.priceWeekly),
     priceMonthly: Number(bed.priceMonthly),
@@ -412,15 +412,11 @@ export async function extendStay(
     return { ok: false, error: "Продление пересекается с другим заселением" };
   }
 
-  const extCost = suggestAmount(
-    parsed.data.rateType,
-    stayDays(stay.dateTo, newTo),
-    {
-      priceDaily: Number(stay.bed.priceDaily),
-      priceWeekly: Number(stay.bed.priceWeekly),
-      priceMonthly: Number(stay.bed.priceMonthly),
-    },
-  );
+  const extCost = suggestAmount(parsed.data.rateType, stay.dateTo, newTo, {
+    priceDaily: Number(stay.bed.priceDaily),
+    priceWeekly: Number(stay.bed.priceWeekly),
+    priceMonthly: Number(stay.bed.priceMonthly),
+  });
 
   await prisma.stay.update({
     where: { id: stayId },
@@ -469,12 +465,16 @@ export async function checkoutStay(
     return { ok: false, error: "Дата выезда должна быть позже даты заезда" };
   }
 
-  const actualDays = stayDays(stay.dateFrom, actualTo);
-  const owed = suggestAmount(parsed.data.refundRateType, actualDays, {
-    priceDaily: Number(stay.bed.priceDaily),
-    priceWeekly: Number(stay.bed.priceWeekly),
-    priceMonthly: Number(stay.bed.priceMonthly),
-  });
+  const owed = suggestAmount(
+    parsed.data.refundRateType,
+    stay.dateFrom,
+    actualTo,
+    {
+      priceDaily: Number(stay.bed.priceDaily),
+      priceWeekly: Number(stay.bed.priceWeekly),
+      priceMonthly: Number(stay.bed.priceMonthly),
+    },
+  );
   const paidTotal = stay.payments.reduce((n, p) => n + Number(p.amount), 0);
   const refund = paidTotal - owed;
   const doRefund = str(formData, "withRefund") === "on" && refund > 0;
