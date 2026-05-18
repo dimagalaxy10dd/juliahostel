@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AddDialog } from "@/components/add-dialog";
 import { DeleteForm } from "@/components/delete-form";
-import { PropertyTabs } from "@/components/property-tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { prisma } from "@/lib/prisma";
@@ -178,8 +177,6 @@ export default async function ResidentsPage({
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{property.name}</h1>
       </div>
-
-      <PropertyTabs propertyId={id} active="residents" />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Список жильцов</h2>

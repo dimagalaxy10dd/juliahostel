@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PropertyTabs } from "@/components/property-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { paidThroughDays, stayDays } from "@/lib/billing";
 import { formatMoney } from "@/lib/format";
@@ -201,8 +200,6 @@ export default async function PropertyDashboardPage({
           <p className="text-muted-foreground">{property.address}</p>
         )}
       </div>
-
-      <PropertyTabs propertyId={id} active="dashboard" />
 
       {bedCount === 0 ? (
         <div className="bg-card rounded-lg border p-6 text-center">

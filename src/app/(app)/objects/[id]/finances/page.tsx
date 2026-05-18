@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DeleteForm } from "@/components/delete-form";
-import { PropertyTabs } from "@/components/property-tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatMoney } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
@@ -101,8 +100,6 @@ export default async function FinancesPage({
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{property.name}</h1>
       </div>
-
-      <PropertyTabs propertyId={id} active="finances" />
 
       <div className="flex items-center justify-start gap-3">
         <Link

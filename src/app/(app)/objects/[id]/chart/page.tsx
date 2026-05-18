@@ -9,7 +9,6 @@ import {
 import { ru } from "date-fns/locale";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PropertyTabs } from "@/components/property-tabs";
 import { prisma } from "@/lib/prisma";
 import type { RateType } from "@/lib/billing";
 import { ChartGrid, type ChartRoom } from "../chart-grid";
@@ -118,8 +117,6 @@ export default async function PropertyChartPage({
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">{property.name}</h1>
       </div>
-
-      <PropertyTabs propertyId={id} active="chart" />
 
       {bedCount === 0 ? (
         <div className="bg-card rounded-lg border p-6 text-center">
