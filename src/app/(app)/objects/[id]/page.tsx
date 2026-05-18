@@ -260,11 +260,11 @@ export default async function PropertyDashboardPage({
           </div>
 
           <div className="bg-card space-y-3 rounded-lg border p-4">
-            <h2 className="text-base font-semibold">Доход по месяцам</h2>
+            <h2 className="text-base font-semibold">Прибыль по месяцам</h2>
             <MonthlyBars
               data={series.map((s) => ({
                 label: MONTHS_SHORT[s.month],
-                income: s.income,
+                value: s.profit,
               }))}
             />
           </div>
@@ -390,29 +390,38 @@ function FinanceCard({
 function MonthlyBars({
   data,
 }: {
-  data: { label: string; income: number }[];
+  data: { label: string; value: number }[];
 }) {
-  const max = Math.max(1, ...data.map((d) => d.income));
+  const maxAbs = Math.max(1, ...data.map((d) => Math.abs(d.value)));
   return (
     <div className="flex items-end gap-1.5">
       {data.map((d, i) => {
         const isCurrent = i === data.length - 1;
-        const pct = (d.income / max) * 100;
+        const negative = d.value < 0;
+        const pct = (Math.abs(d.value) / maxAbs) * 100;
         return (
           <div
             key={`${d.label}-${i}`}
             className="flex flex-1 flex-col items-center gap-1"
           >
-            <span className="text-muted-foreground text-[10px] tabular-nums">
-              {d.income > 0 ? d.income.toLocaleString("ru-RU") : ""}
+            <span
+              className={`text-[10px] tabular-nums ${
+                negative ? "text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              {d.value !== 0 ? d.value.toLocaleString("ru-RU") : ""}
             </span>
             <div className="flex h-24 w-full items-end">
               <div
                 className={`w-full rounded-t ${
-                  isCurrent ? "bg-primary" : "bg-foreground/15"
+                  negative
+                    ? "bg-destructive/70"
+                    : isCurrent
+                      ? "bg-primary"
+                      : "bg-foreground/15"
                 }`}
                 style={{
-                  height: d.income > 0 ? `${Math.max(4, pct)}%` : "0%",
+                  height: d.value !== 0 ? `${Math.max(4, pct)}%` : "0%",
                 }}
               />
             </div>

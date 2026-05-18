@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { logout } from "@/app/(app)/actions";
 import { createProperty } from "@/app/(app)/objects/actions";
 import { AddDialog } from "@/components/add-dialog";
+import { ChangeCredentialsDialog } from "@/components/change-credentials-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -104,6 +105,7 @@ export function ObjectSwitcher({
                 {userName}
                 {userEmail ? ` · ${userEmail}` : ""}
               </p>
+              <ChangeCredentialsDialog currentEmail={userEmail} />
               <form action={logout}>
                 <button
                   type="submit"

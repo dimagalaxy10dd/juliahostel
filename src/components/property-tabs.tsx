@@ -1,4 +1,4 @@
-import { Grid3x3, Home, Settings, Users, Wallet } from "lucide-react";
+import { CalendarDays, Home, Settings, Users, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 
@@ -6,7 +6,7 @@ type TabKey = "dashboard" | "chart" | "finances" | "residents" | "structure";
 
 const TABS: { key: TabKey; label: string; path: string; icon: LucideIcon }[] = [
   { key: "dashboard", label: "Главная", path: "", icon: Home },
-  { key: "chart", label: "Шахматка", path: "/chart", icon: Grid3x3 },
+  { key: "chart", label: "Календарь", path: "/chart", icon: CalendarDays },
   { key: "finances", label: "Финансы", path: "/finances", icon: Wallet },
   { key: "residents", label: "Жильцы", path: "/residents", icon: Users },
   { key: "structure", label: "Настройки", path: "/structure", icon: Settings },

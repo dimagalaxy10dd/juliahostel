@@ -41,6 +41,8 @@ model Building {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   rooms      Room[]
+
+  @@index([propertyId])
 }
 
 // Комната
@@ -51,6 +53,8 @@ model Room {
   buildingId String
   building   Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   beds       Bed[]
+
+  @@index([buildingId])
 }
 
 // Место (кровать) с тремя тарифами
@@ -64,6 +68,8 @@ model Bed {
   roomId       String
   room         Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
   stays        Stay[]
+
+  @@index([roomId])
 }
 
 // Жилец
@@ -78,6 +84,8 @@ model Resident {
   propertyId   String
   property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   stays        Stay[]
+
+  @@index([propertyId])
 }
 
 // Проживание — жилец занимает место на диапазон дат
@@ -109,6 +117,8 @@ model Payment {
   amount Decimal
   paidAt DateTime @default(now())
   note   String?
+
+  @@index([stayId])
 }
 
 // Категория затрат объекта (электричество, мусор и т.п.)

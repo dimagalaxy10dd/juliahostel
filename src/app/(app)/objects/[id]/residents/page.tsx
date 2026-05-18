@@ -196,8 +196,8 @@ export default async function ResidentsPage({
 
       {residents.length === 0 ? (
         <p className="text-muted-foreground">
-          Жильцов пока нет. Их можно добавить здесь или прямо при заселении на
-          шахматке.
+          Жильцов пока нет. Их можно добавить здесь или прямо при заселении в
+          календаре.
         </p>
       ) : (
         <>

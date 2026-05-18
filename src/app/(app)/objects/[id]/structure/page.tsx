@@ -47,7 +47,7 @@ function BuildingFields({ building }: { building?: { name: string; color: string
         />
       </div>
       <div className="space-y-2">
-        <Label className="text-base">Цвет в шахматке</Label>
+        <Label className="text-base">Цвет в календаре</Label>
         <div className="flex flex-wrap gap-2">
           <label className="cursor-pointer">
             <input

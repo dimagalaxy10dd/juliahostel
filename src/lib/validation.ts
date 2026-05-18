@@ -5,6 +5,15 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Введите пароль"),
 });
 
+export const credentialsSchema = z.object({
+  currentPassword: z.string().min(1, "Введите текущий пароль"),
+  email: z.email("Введите корректный email"),
+  newPassword: z
+    .string()
+    .min(8, "Новый пароль — минимум 8 символов")
+    .or(z.literal("")),
+});
+
 export const propertySchema = z.object({
   name: z.string().trim().min(1, "Укажите название объекта"),
   address: z.string().trim().optional(),
