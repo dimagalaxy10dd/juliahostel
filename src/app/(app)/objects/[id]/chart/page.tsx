@@ -134,7 +134,9 @@ export default async function PropertyChartPage({
     where: { propertyId: id },
     orderBy: { fullName: "asc" },
   });
-  const residentNames = residents.map((r) => r.fullName);
+  // Уникальные имена — список нужен только для автоподсказки, а одинаковые
+  // имена ломают ключи в <datalist>.
+  const residentNames = [...new Set(residents.map((r) => r.fullName))];
 
   return (
     <div className="space-y-5">
