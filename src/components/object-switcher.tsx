@@ -32,11 +32,11 @@ export function ObjectSwitcher({
   }, [pathname]);
 
   return (
-    <div className="relative">
+    <div className="relative w-full sm:w-auto">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="bg-card hover:bg-muted flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
+        className="bg-card hover:bg-muted flex w-full items-center justify-between gap-2 rounded-full border px-4 py-2 text-sm font-medium sm:w-auto"
       >
         <span className="max-w-40 truncate">
           {current ? current.name : "Выберите объект"}

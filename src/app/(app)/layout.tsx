@@ -21,7 +21,7 @@ export default async function AppLayout({
       <header className="bg-card border-b">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <PropertyTabs />
-          <div className="order-2 ml-auto sm:order-3 sm:ml-0">
+          <div className="order-2 w-full sm:order-3 sm:w-auto">
             <ObjectSwitcher
               properties={properties}
               userName={session?.user?.name ?? ""}
