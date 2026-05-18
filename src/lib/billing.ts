@@ -1,10 +1,9 @@
 import { differenceInCalendarDays } from "date-fns";
 
-export type RateType = "DAILY" | "WEEKLY" | "MONTHLY";
+export type RateType = "DAILY" | "MONTHLY";
 
 export const RATE_LABELS: Record<RateType, string> = {
   DAILY: "Посуточно",
-  WEEKLY: "Понедельно",
   MONTHLY: "Помесячно",
 };
 
@@ -15,7 +14,6 @@ export function stayDays(from: Date, to: Date): number {
 
 type Prices = {
   priceDaily: number;
-  priceWeekly: number;
   priceMonthly: number;
 };
 
@@ -74,9 +72,6 @@ export function suggestAmount(
   const nights = stayDays(from, toExcl);
   if (nights <= 0) return 0;
   if (rateType === "DAILY") return Math.round(nights * prices.priceDaily);
-  if (rateType === "WEEKLY") {
-    return Math.round((nights / 7) * prices.priceWeekly);
-  }
   return Math.round(monthlyCost(from, toExcl, prices.priceMonthly));
 }
 

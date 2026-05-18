@@ -146,7 +146,6 @@ export async function createBed(
   const parsed = bedSchema.safeParse({
     label: str(formData, "label"),
     priceDaily: str(formData, "priceDaily"),
-    priceWeekly: str(formData, "priceWeekly"),
     priceMonthly: str(formData, "priceMonthly"),
   });
   if (!parsed.success) {
@@ -160,7 +159,6 @@ export async function createBed(
       roomId,
       sortOrder: count,
       priceDaily: parsed.data.priceDaily,
-      priceWeekly: parsed.data.priceWeekly,
       priceMonthly: parsed.data.priceMonthly,
     },
   });
@@ -176,7 +174,6 @@ export async function updateBed(
   const parsed = bedSchema.safeParse({
     label: str(formData, "label"),
     priceDaily: str(formData, "priceDaily"),
-    priceWeekly: str(formData, "priceWeekly"),
     priceMonthly: str(formData, "priceMonthly"),
   });
   if (!parsed.success) {
@@ -187,7 +184,6 @@ export async function updateBed(
     data: {
       label: parsed.data.label,
       priceDaily: parsed.data.priceDaily,
-      priceWeekly: parsed.data.priceWeekly,
       priceMonthly: parsed.data.priceMonthly,
     },
   });
@@ -307,7 +303,6 @@ export async function createStay(
   if (!bed) return { ok: false, error: "Место не найдено" };
   const agreedAmount = suggestAmount(rateType, from, to, {
     priceDaily: Number(bed.priceDaily),
-    priceWeekly: Number(bed.priceWeekly),
     priceMonthly: Number(bed.priceMonthly),
   });
 
@@ -414,7 +409,6 @@ export async function extendStay(
 
   const extCost = suggestAmount(parsed.data.rateType, stay.dateTo, newTo, {
     priceDaily: Number(stay.bed.priceDaily),
-    priceWeekly: Number(stay.bed.priceWeekly),
     priceMonthly: Number(stay.bed.priceMonthly),
   });
 
@@ -489,7 +483,6 @@ export async function checkoutStay(
       actualTo,
       {
         priceDaily: Number(stay.bed.priceDaily),
-        priceWeekly: Number(stay.bed.priceWeekly),
         priceMonthly: Number(stay.bed.priceMonthly),
       },
     );

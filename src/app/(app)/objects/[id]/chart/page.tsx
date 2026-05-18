@@ -110,7 +110,6 @@ export default async function PropertyChartPage({
           buildingName: b.name,
           roomName: r.name,
           priceDaily: Number(bed.priceDaily),
-          priceWeekly: Number(bed.priceWeekly),
           priceMonthly: Number(bed.priceMonthly),
         })),
       });

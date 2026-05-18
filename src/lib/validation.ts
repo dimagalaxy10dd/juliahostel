@@ -31,7 +31,6 @@ export const roomSchema = z.object({
 export const bedSchema = z.object({
   label: z.string().trim().min(1, "Укажите название места"),
   priceDaily: z.coerce.number().min(0, "Не может быть меньше 0"),
-  priceWeekly: z.coerce.number().min(0, "Не может быть меньше 0"),
   priceMonthly: z.coerce.number().min(0, "Не может быть меньше 0"),
 });
 
@@ -49,7 +48,7 @@ export const staySchema = z
     residentName: z.string().trim().min(1, "Укажите имя жильца"),
     dateFrom: z.string().min(1, "Укажите дату заезда"),
     dateTo: z.string().min(1, "Укажите дату выезда"),
-    rateType: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
+    rateType: z.enum(["DAILY", "MONTHLY"]),
     received: z.coerce.number().min(0, "Сумма не может быть меньше 0"),
   })
   .refine((v) => v.dateTo > v.dateFrom, {
@@ -63,13 +62,13 @@ export const paymentSchema = z.object({
 
 export const extendSchema = z.object({
   newDateTo: z.string().min(1, "Укажите новую дату выезда"),
-  rateType: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
+  rateType: z.enum(["DAILY", "MONTHLY"]),
   received: z.coerce.number().min(0, "Сумма не может быть меньше 0"),
 });
 
 export const checkoutSchema = z.object({
   actualDateTo: z.string().min(1, "Укажите дату выезда"),
-  refundRateType: z.enum(["DAILY", "WEEKLY", "MONTHLY"]),
+  refundRateType: z.enum(["DAILY", "MONTHLY"]),
 });
 
 export const expenseCategorySchema = z.object({

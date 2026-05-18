@@ -31,7 +31,6 @@ export type ChartBed = {
   buildingName: string;
   roomName: string;
   priceDaily: number;
-  priceWeekly: number;
   priceMonthly: number;
 };
 
@@ -1034,7 +1033,6 @@ function RateSelect({
         className="border-input bg-background h-11 w-full rounded-lg border px-3 text-base"
       >
         <option value="DAILY">Посуточно</option>
-        <option value="WEEKLY">Понедельно</option>
         <option value="MONTHLY">Помесячно</option>
       </select>
     </div>

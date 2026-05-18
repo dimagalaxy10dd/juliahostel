@@ -83,7 +83,6 @@ function BuildingFields({ building }: { building?: { name: string; color: string
 type BedDefaults = {
   label: string;
   priceDaily: number;
-  priceWeekly: number;
   priceMonthly: number;
 };
 
@@ -100,9 +99,9 @@ function BedFields({ bed }: { bed?: BedDefaults }) {
           className="h-11 text-base"
         />
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <Label className="text-sm">Сутки</Label>
+          <Label className="text-sm">Цена за сутки</Label>
           <Input
             name="priceDaily"
             type="number"
@@ -113,18 +112,7 @@ function BedFields({ bed }: { bed?: BedDefaults }) {
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-sm">Неделя</Label>
-          <Input
-            name="priceWeekly"
-            type="number"
-            min="0"
-            step="1"
-            defaultValue={bed?.priceWeekly ?? 0}
-            className="h-11"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-sm">Месяц</Label>
+          <Label className="text-sm">Цена за месяц</Label>
           <Input
             name="priceMonthly"
             type="number"
@@ -326,7 +314,6 @@ export default async function StructurePage({
                         const view: BedDefaults = {
                           label: bed.label,
                           priceDaily: Number(bed.priceDaily),
-                          priceWeekly: Number(bed.priceWeekly),
                           priceMonthly: Number(bed.priceMonthly),
                         };
                         return (
@@ -338,7 +325,6 @@ export default async function StructurePage({
                               <p className="font-medium">{bed.label}</p>
                               <p className="text-sm text-muted-foreground">
                                 {formatMoney(view.priceDaily)} / сутки ·{" "}
-                                {formatMoney(view.priceWeekly)} / неделя ·{" "}
                                 {formatMoney(view.priceMonthly)} / месяц
                               </p>
                             </div>
