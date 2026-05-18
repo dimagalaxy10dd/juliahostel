@@ -461,22 +461,35 @@ function WarnSection({
         </p>
         <div className="mt-2 space-y-1">
           {items.map((i) => (
-            <Link
+            <div
               key={i.id}
-              href={`/objects/${propertyId}/chart`}
-              className="hover:bg-muted -mx-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md px-2 py-2"
+              className="-mx-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md px-2 py-2"
             >
-              <span>
-                <span className="font-medium">{i.residentName}</span>
-                <span className="text-muted-foreground text-sm">
-                  {" "}
-                  — {i.place}
-                </span>
-              </span>
-              <span className="text-muted-foreground text-sm">
-                {render(i)}
-              </span>
-            </Link>
+              <div>
+                <p>
+                  <span className="font-medium">{i.residentName}</span>
+                  <span className="text-muted-foreground text-sm">
+                    {" "}
+                    — {i.place}
+                  </span>
+                </p>
+                <p className="text-muted-foreground text-sm">{render(i)}</p>
+              </div>
+              <div className="flex gap-2">
+                <Link
+                  href={`/objects/${propertyId}/chart?open=${i.id}&panel=extend`}
+                  className="bg-card hover:bg-muted rounded-lg border px-3 py-1.5 text-sm font-medium"
+                >
+                  Продлить
+                </Link>
+                <Link
+                  href={`/objects/${propertyId}/chart?open=${i.id}&panel=checkout`}
+                  className="bg-card hover:bg-muted rounded-lg border px-3 py-1.5 text-sm font-medium"
+                >
+                  Выселить
+                </Link>
+              </div>
+            </div>
           ))}
         </div>
       </CardContent>

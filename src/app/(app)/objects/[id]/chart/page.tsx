@@ -11,10 +11,40 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import type { RateType } from "@/lib/billing";
-import { ChartGrid, type ChartRoom } from "../chart-grid";
+import { ChartGrid, type ChartRoom, type ChartStay } from "../chart-grid";
 
 function isoDay(d: Date): string {
   return format(d, "yyyy-MM-dd");
+}
+
+type StayRow = {
+  id: string;
+  bedId: string;
+  resident: { fullName: string };
+  payments: { amount: unknown }[];
+  dateFrom: Date;
+  dateTo: Date;
+  rateType: string;
+  status: string;
+  agreedAmount: unknown;
+  refundAmount: unknown;
+  refundedAt: Date | null;
+};
+
+function mapStay(s: StayRow): ChartStay {
+  return {
+    id: s.id,
+    bedId: s.bedId,
+    residentName: s.resident.fullName,
+    dateFrom: s.dateFrom.toISOString().slice(0, 10),
+    dateTo: s.dateTo.toISOString().slice(0, 10),
+    rateType: s.rateType as RateType,
+    status: s.status,
+    agreedAmount: Number(s.agreedAmount),
+    paidTotal: s.payments.reduce((sum, p) => sum + Number(p.amount), 0),
+    refundAmount: s.refundAmount != null ? Number(s.refundAmount) : null,
+    refundedAt: s.refundedAt ? s.refundedAt.toISOString() : null,
+  };
 }
 
 export default async function PropertyChartPage({
@@ -22,10 +52,10 @@ export default async function PropertyChartPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; open?: string; panel?: string }>;
 }) {
   const { id } = await params;
-  const { month } = await searchParams;
+  const { month, open, panel } = await searchParams;
 
   const property = await prisma.property.findUnique({
     where: { id },
@@ -43,10 +73,20 @@ export default async function PropertyChartPage({
   });
   if (!property) notFound();
 
+  // Заселение, которое нужно открыть сразу (переход из «Требует внимания»).
+  const openStay = open
+    ? await prisma.stay.findUnique({
+        where: { id: open },
+        include: { resident: true, payments: true },
+      })
+    : null;
+
   const base =
     month && /^\d{4}-\d{2}$/.test(month)
       ? new Date(`${month}-01T00:00:00`)
-      : new Date();
+      : openStay
+        ? startOfMonth(openStay.dateFrom)
+        : new Date();
   const monthStart = startOfMonth(base);
   const monthEnd = endOfMonth(base);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd }).map(
@@ -86,19 +126,10 @@ export default async function PropertyChartPage({
     },
     include: { resident: true, payments: true },
   });
-  const stays = stayRows.map((s) => ({
-    id: s.id,
-    bedId: s.bedId,
-    residentName: s.resident.fullName,
-    dateFrom: s.dateFrom.toISOString().slice(0, 10),
-    dateTo: s.dateTo.toISOString().slice(0, 10),
-    rateType: s.rateType as RateType,
-    status: s.status,
-    agreedAmount: Number(s.agreedAmount),
-    paidTotal: s.payments.reduce((sum, p) => sum + Number(p.amount), 0),
-    refundAmount: s.refundAmount != null ? Number(s.refundAmount) : null,
-    refundedAt: s.refundedAt ? s.refundedAt.toISOString() : null,
-  }));
+  const stays = stayRows.map(mapStay);
+  if (openStay && !stays.some((s) => s.id === openStay.id)) {
+    stays.push(mapStay(openStay));
+  }
 
   const residents = await prisma.resident.findMany({
     where: { propertyId: id },
@@ -130,6 +161,10 @@ export default async function PropertyChartPage({
           monthLabel={monthLabel}
           prevMonth={format(addMonths(monthStart, -1), "yyyy-MM")}
           nextMonth={format(addMonths(monthStart, 1), "yyyy-MM")}
+          openStayId={openStay?.id}
+          openPanel={
+            panel === "extend" || panel === "checkout" ? panel : undefined
+          }
         />
       )}
     </div>

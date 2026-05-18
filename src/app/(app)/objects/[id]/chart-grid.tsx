@@ -84,6 +84,8 @@ export function ChartGrid({
   monthLabel,
   prevMonth,
   nextMonth,
+  openStayId,
+  openPanel,
 }: {
   propertyId: string;
   days: string[];
@@ -93,8 +95,19 @@ export function ChartGrid({
   monthLabel: string;
   prevMonth: string;
   nextMonth: string;
+  openStayId?: string;
+  openPanel?: "extend" | "checkout";
 }) {
-  const [dialog, setDialog] = useState<DialogState>(null);
+  const [dialog, setDialog] = useState<DialogState>(() => {
+    if (!openStayId) return null;
+    const stay = stays.find((s) => s.id === openStayId);
+    if (!stay) return null;
+    for (const room of rooms) {
+      const bed = room.beds.find((b) => b.id === stay.bedId);
+      if (bed) return { type: "view", bed, stay };
+    }
+    return null;
+  });
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -189,6 +202,9 @@ export function ChartGrid({
           stay={dialog.stay}
           propertyId={propertyId}
           today={today}
+          initialPanel={
+            dialog.stay.id === openStayId ? openPanel : undefined
+          }
           onClose={() => setDialog(null)}
         />
       )}
@@ -496,15 +512,17 @@ function StayDialog({
   stay,
   propertyId,
   today,
+  initialPanel,
   onClose,
 }: {
   bed: ChartBed;
   stay: ChartStay;
   propertyId: string;
   today: string;
+  initialPanel?: "extend" | "checkout";
   onClose: () => void;
 }) {
-  const [panel, setPanel] = useState<Panel>("main");
+  const [panel, setPanel] = useState<Panel>(initialPanel ?? "main");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
