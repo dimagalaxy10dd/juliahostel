@@ -465,34 +465,49 @@ export async function checkoutStay(
     return { ok: false, error: "Дата выезда должна быть позже даты заезда" };
   }
 
-  const owed = suggestAmount(
-    parsed.data.refundRateType,
-    stay.dateFrom,
-    actualTo,
-    {
-      priceDaily: Number(stay.bed.priceDaily),
-      priceWeekly: Number(stay.bed.priceWeekly),
-      priceMonthly: Number(stay.bed.priceMonthly),
-    },
-  );
   const paidTotal = stay.payments.reduce((n, p) => n + Number(p.amount), 0);
-  const refund = paidTotal - owed;
-  const doRefund = str(formData, "withRefund") === "on" && refund > 0;
+  const originalAgreed = Number(stay.agreedAmount);
+  const withRefund = str(formData, "withRefund") === "on";
+
+  // По умолчанию ранний выезд не меняет сумму к оплате и не создаёт долг.
+  let newAgreed = originalAgreed;
+  let refundAmount: number | null = null;
+
+  if (withRefund) {
+    const recomputed = suggestAmount(
+      parsed.data.refundRateType,
+      stay.dateFrom,
+      actualTo,
+      {
+        priceDaily: Number(stay.bed.priceDaily),
+        priceWeekly: Number(stay.bed.priceWeekly),
+        priceMonthly: Number(stay.bed.priceMonthly),
+      },
+    );
+    // Ранний выезд не может увеличить сумму — берём не больше согласованной.
+    newAgreed = Math.min(originalAgreed, recomputed);
+    const refund = paidTotal - newAgreed;
+    if (refund > 0) refundAmount = refund;
+  }
 
   await prisma.stay.update({
     where: { id: stayId },
     data: {
       dateTo: actualTo,
       status: "ENDED",
-      agreedAmount: owed,
-      refundAmount: doRefund ? refund : null,
-      refundedAt: doRefund ? new Date() : null,
+      agreedAmount: newAgreed,
+      refundAmount,
+      refundedAt: refundAmount != null ? new Date() : null,
     },
   });
   // Возврат выдаётся сразу при выселении — фиксируем как отрицательную оплату.
-  if (doRefund) {
+  if (refundAmount != null) {
     await prisma.payment.create({
-      data: { stayId, amount: -refund, note: "Возврат при раннем выезде" },
+      data: {
+        stayId,
+        amount: -refundAmount,
+        note: "Возврат при раннем выезде",
+      },
     });
   }
   revalidatePath(`/objects/${propertyId}`);

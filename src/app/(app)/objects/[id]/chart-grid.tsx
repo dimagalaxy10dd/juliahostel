@@ -897,7 +897,7 @@ function CheckoutPanel({
     actualDateTo >= stay.dateFrom
       ? stayDays(new Date(stay.dateFrom), new Date(actualDateTo)) + 1
       : 0;
-  const owed =
+  const recomputed =
     actualDays > 0
       ? suggestAmount(
           rateType,
@@ -906,7 +906,9 @@ function CheckoutPanel({
           bed,
         )
       : 0;
-  const refund = stay.paidTotal - owed;
+  // Ранний выезд не может увеличить сумму к оплате.
+  const owed = Math.min(stay.agreedAmount, recomputed);
+  const refund = Math.max(0, stay.paidTotal - owed);
 
   return (
     <form action={onSubmit} className="space-y-4">
@@ -956,22 +958,16 @@ function CheckoutPanel({
           />
           <div className="bg-muted space-y-1 rounded-lg p-3 text-sm">
             <Row label="Дней проживания">{actualDays} дн.</Row>
-            <Row label="Стоимость по тарифу">{formatMoney(owed)}</Row>
+            <Row label="Стоимость проживания">{formatMoney(owed)}</Row>
             <Row label="Уже оплачено">{formatMoney(stay.paidTotal)}</Row>
             <div className="flex justify-between gap-4 border-t pt-1">
-              <dt className="font-medium">
-                {refund >= 0 ? "К возврату жильцу" : "Долг жильца"}
-              </dt>
+              <dt className="font-medium">К возврату жильцу</dt>
               <dd
                 className={`font-semibold ${
-                  refund > 0
-                    ? "text-emerald-700"
-                    : refund < 0
-                      ? "text-destructive"
-                      : ""
+                  refund > 0 ? "text-emerald-700" : ""
                 }`}
               >
-                {formatMoney(Math.abs(refund))}
+                {formatMoney(refund)}
               </dd>
             </div>
           </div>
